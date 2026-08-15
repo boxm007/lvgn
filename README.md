@@ -30,13 +30,18 @@
 
 ## 🛠️ ขั้นตอนการติดตั้งและเปิดใช้งาน (Setup & Run)
 
-### วิธีที่ 1: ดับเบิ้ลคลิก 1-Click สำหรับ Windows (แนะนำ)
-* เพียงดับเบิ้ลคลิกที่ไฟล์ **`start.bat`**
-* ระบบจะทำการตรวจสอบ Node.js, ติดตั้ง Dependencies และเปิดหน้าเว็บ `http://localhost:3000` ให้โดยอัตโนมัติ
+### วิธีที่ 1: ใช้ไฟล์สคริปต์เปิดอัตโนมัติ (1-Click Run)
+* **สำหรับ Windows:** ดับเบิ้ลคลิกที่ไฟล์ **`start.bat`**
+* **สำหรับ Termux (Android) / Linux / macOS:** รันผ่านสคริปต์ **`start.sh`**:
+  ```bash
+  chmod +x start.sh
+  ./start.sh
+  ```
+* *ระบบจะตรวจสอบการติดตั้ง Node.js, ติดตั้ง Dependencies, ตั้งค่าคีย์เริ่มต้น และเปิดหน้าเว็บ `http://localhost:3000` ให้โดยอัตโนมัติ*
 
 ---
 
-### วิธีที่ 2: รันผ่านคำสั่ง Terminal / Command Prompt
+### วิธีที่ 2: รันแบบ Manual ผ่านคำสั่ง Terminal
 1. **ติดตั้ง Dependencies:**
    ```bash
    npm install
