@@ -1,0 +1,1451 @@
+/**
+ * LONG VOYAGE — APP CLIENT CONTROLLER
+ * Full orchestration of Khuiai UI, 4-Stage AI Pipeline, Detailed Worldbook, Dynamic NPC Discovery & Fast Responses
+ */
+
+// Global State
+const State = {
+  activeView: 'view-browse',
+  worlds: [],
+  characters: [],
+  activeWorld: null,
+  activeCharacter: null,
+  activeSlot: null,
+  currentMode: 'Say', // 'Say' or 'Do'
+  enableDice: true,
+  isLoadingTurn: false
+};
+
+// 6 Official Style Mode Presets from `prompt ai/ai3_storyteller-1.md`
+const PRESET_TEMPLATES = {
+  drama: {
+    preset_name: 'ดราม่าเข้มข้น (Drama)',
+    tone_directive: 'เน้นความขัดแย้งภายในและความสัมพันธ์ระหว่างตัวละคร ทุกฉากมีน้ำหนักทางอารมณ์ ให้ความสำคัญกับสีหน้า น้ำเสียง ความเงียบที่พูดมากกว่าคำพูด บทพูดมี subtext',
+    prose_style: 'สำนวนภาษาไทยสละสลวย บรรยายฉากและประสาทสัมผัสคมชัด มี pause และความเงียบในบทสนทนา หลีกเลี่ยงการบอกอารมณ์ตรงๆ ให้คนอ่านรู้สึกเองผ่านรายละเอียด',
+    pacing: 'จังหวะช้าในฉากอารมณ์สำคัญ ปล่อยให้ความเงียบและอารมณ์ตกค้างมีพื้นที่ในข้อความ',
+    pronoun_pov: 'บุคคลที่ 2 (คุณ) สำหรับผู้เล่น และบุคคลที่ 3 สำหรับตัวละคร',
+    max_response_tokens: 500
+  },
+  dark: {
+    preset_name: 'ดาร์กกดดัน (Dark & Gritty)',
+    tone_directive: 'โทนหนักหน่วง โลกไม่ปรานีต่อตัวละคร บรรยายผลของความรุนแรง ความสูญเสีย หรือความล้มเหลวอย่างตรงไปตรงมา บรรยากาศกดดัน สิ้นหวัง ตัวละครไม่มี plot armor',
+    prose_style: 'ภาพพจน์ที่หนักแน่น กระชับ ไม่ประดับประดา ความเจ็บปวดและความสูญเสียรู้สึกได้จริง ไม่มีการเยียวยาด้วยน้ำเสียงบรรยายที่ soften ความจริง',
+    pacing: 'ตึงเครียด บีบคั้น รวดเร็วและไม่ประนีประนอม',
+    pronoun_pov: 'บุคคลที่ 2 (คุณ)',
+    max_response_tokens: 500
+  },
+  warm: {
+    preset_name: 'อบอุ่นหัวใจ (Warm & Bonding)',
+    tone_directive: 'เน้นความสัมพันธ์เชิงบวก ความผูกพัน และช่วงเวลาสงบท่ามกลางความยากลำบาก ("ความหวังที่หาได้ยากและมีค่า") ให้พื้นที่กับความอบอุ่นเล็กๆ ระหว่างตัวละคร',
+    prose_style: 'ภาษาที่นุ่มนวลกว่า มีจังหวะหายใจและรอยยิ้ม แต่ยังคงรักษาผลลัพธ์จริงของเกมอย่างซื่อสัตย์',
+    pacing: 'ผ่อนคลาย อบอุ่น มีเวลาให้ตัวละครได้ปรับความเข้าใจ',
+    pronoun_pov: 'บุคคลที่ 2 (คุณ)',
+    max_response_tokens: 450
+  },
+  adventure: {
+    preset_name: 'ผจญภัยแอ็กชัน (Adventure)',
+    tone_directive: 'จังหวะเร็ว กระชับ เน้น action และการเคลื่อนไหว เผชิญหน้ากับความท้าทายและการต่อสู้',
+    prose_style: 'ประโยคสั้น กระแทก สร้างความรู้สึกเร่งด่วน ใช้ sensory detail ภายนอก (เสียง, การเคลื่อนไหว, เสี้ยววินาที) ลดการพรรณนาในจิตใจ เน้นสิ่งที่เกิดขึ้นภายนอก',
+    pacing: 'รวดเร็ว ฉับไว น่าตื่นเต้น',
+    pronoun_pov: 'บุคคลที่ 2 (คุณ)',
+    max_response_tokens: 450
+  },
+  tactical: {
+    preset_name: 'ยุทธวิธี/สมจริงหยาบกระด้าง (Tactical & Gritty)',
+    tone_directive: 'เน้นความสมจริงของผลที่ตามมาทางกายภาพและยุทธวิธี (ทำแบบนี้ → ผลแบบนี้) ไม่โรแมนติไซส์ความรุนแรง มีตรรกะและเหตุผลชัดเจน',
+    prose_style: 'ภาษากระชับ ตรงประเด็น เหมือนรายงานสถานการณ์ที่แทรกความรู้สึกเข้ามาเป็นระยะ เน้นการวางแผน ทรัพยากร และการตัดสินใจใต้ความกดดัน',
+    pacing: 'แม่นยำ เด็ดขาด ตรงไปตรงมา',
+    pronoun_pov: 'บุคคลที่ 2 (คุณ)',
+    max_response_tokens: 450
+  },
+  slice_of_life: {
+    preset_name: 'เรียบง่ายสมจริง (Slice of Life)',
+    tone_directive: 'จังหวะช้า เน้นรายละเอียดชีวิตประจำวัน ปฏิสัมพันธ์เล็กๆ ระหว่างตัวละคร บทสนทนาทั่วไป และบรรยากาศของสถานที่',
+    prose_style: 'ภาษาเรียบง่าย เป็นธรรมชาติ เก็บเกี่ยวช่วงเวลาสงบสุขระหว่างการเดินทาง',
+    pacing: 'ช้า ผ่อนคลาย ละเมียดละไม',
+    pronoun_pov: 'บุคคลที่ 2 (คุณ)',
+    max_response_tokens: 400
+  },
+  custom: {
+    preset_name: 'ปรับแต่งอิสระ (Custom Override)',
+    tone_directive: 'ตามที่ผู้เล่นกำหนดเอง',
+    prose_style: 'ตามที่ผู้เล่นกำหนดเอง',
+    pacing: 'กำหนดเอง',
+    pronoun_pov: 'บุคคลที่ 2 (คุณ)',
+    max_response_tokens: 500
+  }
+};
+
+// DOM Elements
+const Elements = {
+  views: {
+    browse: document.getElementById('view-browse'),
+    slots: document.getElementById('view-slots'),
+    story: document.getElementById('view-story')
+  },
+  header: {
+    storyInfo: document.getElementById('header-story-info'),
+    charAvatar: document.getElementById('header-char-avatar'),
+    charName: document.getElementById('header-char-name'),
+    emotionPill: document.getElementById('header-emotion-pill'),
+    relStatus: document.getElementById('header-rel-status'),
+    relScore: document.getElementById('header-rel-score'),
+    relBar: document.getElementById('header-rel-bar'),
+    storyActions: document.getElementById('story-header-actions')
+  },
+  browse: {
+    worldsContainer: document.getElementById('worlds-container'),
+    searchInput: document.getElementById('input-search-world'),
+    tagFilters: document.getElementById('tag-filters-container'),
+    btnCreateWorld: document.getElementById('btn-create-world-modal'),
+    btnImportWorldbook: document.getElementById('btn-open-worldbook-import')
+  },
+  slots: {
+    container: document.getElementById('slots-container'),
+    charBanner: document.getElementById('slots-char-banner'),
+    btnBack: document.getElementById('btn-back-to-browse'),
+    btnNewSlot: document.getElementById('btn-new-slot')
+  },
+  story: {
+    feed: document.getElementById('story-feed'),
+    messagesList: document.getElementById('messages-list'),
+    welcomeCard: document.getElementById('feed-welcome'),
+    welcomeTitle: document.getElementById('welcome-char-title'),
+    welcomeDesc: document.getElementById('welcome-char-desc'),
+    typingIndicator: document.getElementById('ai-typing-indicator'),
+    input: document.getElementById('story-input'),
+    btnSend: document.getElementById('btn-send-turn'),
+    btnModeDo: document.getElementById('btn-mode-do'),
+    btnModeSay: document.getElementById('btn-mode-say'),
+    modeIndicator: document.getElementById('input-mode-indicator'),
+    modeLabel: document.getElementById('input-mode-label'),
+    chkEnableDice: document.getElementById('chk-enable-dice'),
+    btnUndo: document.getElementById('btn-undo-turn'),
+    btnRegen: document.getElementById('btn-regen-turn')
+  },
+  drawers: {
+    codex: document.getElementById('drawer-codex'),
+    codexContent: document.getElementById('drawer-codex-content'),
+    inventory: document.getElementById('drawer-inventory'),
+    inventoryList: document.getElementById('inventory-items-list'),
+    inputNewItem: document.getElementById('input-new-item'),
+    btnAddItem: document.getElementById('btn-add-item'),
+    preset: document.getElementById('drawer-preset'),
+    selectTemplate: document.getElementById('select-style-template'),
+    presetTone: document.getElementById('preset-tone'),
+    presetProse: document.getElementById('preset-prose'),
+    presetPacing: document.getElementById('preset-pacing'),
+    presetPov: document.getElementById('preset-pov'),
+    presetCustomInst: document.getElementById('preset-custom-inst'),
+    presetTokens: document.getElementById('input-preset-tokens'),
+    presetTokensVal: document.getElementById('val-preset-tokens'),
+    btnSavePreset: document.getElementById('btn-save-preset'),
+    settings: document.getElementById('drawer-settings'),
+    apiKey: document.getElementById('input-api-key'),
+    btnToggleKey: document.getElementById('btn-toggle-key-visibility'),
+    btnTestApiKey: document.getElementById('btn-test-api-key'),
+    apiVerifyBox: document.getElementById('api-verify-box'),
+    verifyHeaderRow: document.getElementById('verify-header-row'),
+    verifyStatusTitle: document.getElementById('verify-status-title'),
+    verifyDetailText: document.getElementById('verify-detail-text'),
+    headerApiDot: document.getElementById('header-api-dot'),
+    modelName: document.getElementById('input-model-name'),
+    baseURL: document.getElementById('input-base-url'),
+    globalTokens: document.getElementById('input-global-tokens'),
+    globalTokensVal: document.getElementById('val-global-tokens'),
+    temperature: document.getElementById('input-temperature'),
+    tempVal: document.getElementById('val-temperature'),
+    btnSaveSettings: document.getElementById('btn-save-settings')
+  },
+  advModal: {
+    modal: document.getElementById('modal-create-world'),
+    btnClose: document.getElementById('btn-close-create-world'),
+    btnCancel: document.getElementById('btn-cancel-create-world'),
+    btnSubmit: document.getElementById('btn-submit-create-world'),
+    worldName: document.getElementById('adv-world-name'),
+    worldTag: document.getElementById('adv-world-tag'),
+    worldDesc: document.getElementById('adv-world-desc'),
+    worldCover: document.getElementById('adv-world-cover'),
+    loreGeo: document.getElementById('adv-lore-geo'),
+    loreMagic: document.getElementById('adv-lore-magic'),
+    loreFactions: document.getElementById('adv-lore-factions'),
+    charName: document.getElementById('adv-char-name'),
+    charAvatar: document.getElementById('adv-char-avatar'),
+    charDesc: document.getElementById('adv-char-desc'),
+    charTags: document.getElementById('adv-char-tags'),
+    charHistory: document.getElementById('adv-char-history'),
+    statStr: document.getElementById('adv-stat-str'),
+    statAgi: document.getElementById('adv-stat-agi'),
+    statInt: document.getElementById('adv-stat-int'),
+    statCha: document.getElementById('adv-stat-cha'),
+    statPer: document.getElementById('adv-stat-per'),
+    charInv: document.getElementById('adv-char-inv'),
+    sec1Title: document.getElementById('adv-sec1-title'),
+    sec1Content: document.getElementById('adv-sec1-content'),
+    sec1Hint: document.getElementById('adv-sec1-hint'),
+    charPrologue: document.getElementById('adv-char-prologue'),
+    btnAiGenPrologue: document.getElementById('btn-ai-gen-prologue')
+  },
+  wbModal: {
+    modal: document.getElementById('modal-worldbook-import'),
+    btnClose: document.getElementById('btn-close-worldbook-import'),
+    btnCancel: document.getElementById('btn-cancel-worldbook-import'),
+    btnStartAnalyze: document.getElementById('btn-start-analyze-worldbook'),
+    dropzone: document.getElementById('worldbook-dropzone'),
+    fileInput: document.getElementById('file-worldbook-input'),
+    rawInput: document.getElementById('input-raw-worldbook'),
+    analyzingBanner: document.getElementById('wb-analyzing-indicator')
+  }
+};
+
+// ============================================================================
+// INITIALIZATION
+// ============================================================================
+document.addEventListener('DOMContentLoaded', async () => {
+  setupEventListeners();
+  await loadInitialData();
+});
+
+async function loadInitialData() {
+  try {
+    const [worldsData, charactersData, settingsData] = await Promise.all([
+      API.getWorlds(),
+      API.getCharacters(),
+      API.getSettings()
+    ]);
+
+    State.worlds = worldsData.worlds || [];
+    State.characters = charactersData.characters || [];
+
+    if (settingsData && settingsData.settings) {
+      populateSettings(settingsData.settings);
+    }
+
+    renderWorldsList(State.worlds);
+  } catch (err) {
+    showToast('เกิดข้อผิดพลาดในการโหลดข้อมูล: ' + err.message, 'error');
+  }
+}
+
+// ============================================================================
+// NAVIGATION & VIEW SWITCHING
+// ============================================================================
+function switchView(viewName) {
+  State.activeView = viewName;
+  Object.keys(Elements.views).forEach(key => {
+    const el = Elements.views[key];
+    if (el) el.classList.remove('active');
+  });
+
+  const targetEl = document.getElementById(viewName);
+  if (targetEl) targetEl.classList.add('active');
+
+  if (viewName === 'view-story') {
+    Elements.header.storyInfo.style.display = 'flex';
+    Elements.header.storyActions.style.display = 'flex';
+  } else {
+    Elements.header.storyInfo.style.display = 'none';
+    Elements.header.storyActions.style.display = 'none';
+  }
+}
+
+// ============================================================================
+// VIEW 1: BROWSE WORLDS & CHARACTERS
+// ============================================================================
+function renderWorldsList(worlds) {
+  Elements.browse.worldsContainer.innerHTML = '';
+
+  if (worlds.length === 0) {
+    Elements.browse.worldsContainer.innerHTML = `
+      <div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-muted);">
+        <i class="fa-solid fa-earth-americas" style="font-size: 32px; margin-bottom: 12px; display: block;"></i>
+        ยังไม่มีโลกในระบบ กดปุ่ม "สร้างโลกละเอียด" เพื่อเริ่มสร้างจักรวาลของคุณ
+      </div>
+    `;
+    return;
+  }
+
+  worlds.forEach(world => {
+    const worldChars = State.characters.filter(c => c.world_id === world.id);
+    const card = document.createElement('div');
+    card.className = 'world-card';
+
+    let charsHtml = '';
+    worldChars.forEach(char => {
+      charsHtml += `
+        <div class="char-item-card" data-char-id="${char.id}" data-world-id="${world.id}">
+          <div class="char-info-left">
+            <img class="char-avatar" src="${char.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop'}" alt="${char.name}">
+            <div class="char-title-wrap">
+              <span class="char-item-name">${char.name}</span>
+              <span class="char-item-desc">${char.short_desc || ''}</span>
+            </div>
+          </div>
+          <button class="btn btn-primary btn-sm btn-select-char" data-char-id="${char.id}" data-world-id="${world.id}">
+            <i class="fa-solid fa-play"></i> เริ่มเล่น
+          </button>
+        </div>
+      `;
+    });
+
+    card.innerHTML = `
+      <img class="world-cover" src="${world.cover_image || 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=600&auto=format&fit=crop'}" alt="${world.name}">
+      <div class="world-card-body">
+        <span class="world-tag-badge">${world.tag || 'Story'}</span>
+        <h3 class="world-title">${world.name}</h3>
+        <p class="world-desc">${world.description}</p>
+        
+        <div class="world-chars-section">
+          <div class="chars-header">ตัวละครในโลกนี้ (${worldChars.length})</div>
+          <div class="chars-list">
+            ${charsHtml || '<span style="font-size: 12px; color: var(--text-dim);">ยังไม่มีตัวละคร</span>'}
+          </div>
+        </div>
+      </div>
+    `;
+
+    Elements.browse.worldsContainer.appendChild(card);
+  });
+
+  // Attach click events
+  document.querySelectorAll('.btn-select-char').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const worldId = btn.dataset.worldId;
+      const charId = btn.dataset.charId;
+      openSaveSlotsView(worldId, charId);
+    });
+  });
+}
+
+// ============================================================================
+// VIEW 2: SAVE SLOTS MANAGER (FOLDER-BASED ISOLATED SLOTS)
+// ============================================================================
+async function openSaveSlotsView(worldId, characterId) {
+  State.activeWorld = State.worlds.find(w => w.id === worldId);
+  State.activeCharacter = State.characters.find(c => c.id === characterId);
+
+  if (!State.activeWorld || !State.activeCharacter) {
+    showToast('ไม่พบข้อมูลโลกหรือตัวละคร', 'error');
+    return;
+  }
+
+  Elements.slots.charBanner.innerHTML = `
+    <img class="slots-char-img" src="${State.activeCharacter.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop'}">
+    <div>
+      <h3 style="font-size: 17px; font-weight: 700;">${State.activeCharacter.name}</h3>
+      <span style="font-size: 12.5px; color: var(--text-muted);">${State.activeWorld.name}</span>
+    </div>
+  `;
+
+  await loadSaveSlots(worldId, characterId);
+  switchView('view-slots');
+}
+
+async function loadSaveSlots(worldId, characterId) {
+  try {
+    const data = await API.getSlots(worldId, characterId);
+    const slots = data.slots || [];
+    renderSaveSlotsList(slots);
+  } catch (err) {
+    showToast('โหลดเซฟล้มเหลว: ' + err.message, 'error');
+  }
+}
+
+function renderSaveSlotsList(slots) {
+  Elements.slots.container.innerHTML = '';
+
+  if (slots.length === 0) {
+    Elements.slots.container.innerHTML = `
+      <div style="text-align: center; padding: 40px; background: var(--bg-card); border-radius: var(--radius-md);">
+        <i class="fa-solid fa-feather-pointed" style="font-size: 32px; color: var(--accent-amber); margin-bottom: 12px;"></i>
+        <h4 style="margin-bottom: 6px;">ยังไม่มีประวัติการเดินทางกับตัวละครนี้</h4>
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">เริ่มบทสนทนาพร้อมบทนำเปิดเรื่องได้เลย (ระบบจะสร้างโฟลเดอร์เซฟแยกอิสระ)</p>
+        <button id="btn-empty-new-slot" class="btn btn-primary"><i class="fa-solid fa-plus"></i> เริ่มการเดินทางใหม่</button>
+      </div>
+    `;
+    document.getElementById('btn-empty-new-slot')?.addEventListener('click', createNewSlotHandler);
+    return;
+  }
+
+  slots.forEach(slot => {
+    const card = document.createElement('div');
+    card.className = 'slot-card';
+
+    const turnCount = slot.history ? slot.history.filter(h => h.role === 'user').length : 0;
+    const relVal = slot.dynamic_state ? slot.dynamic_state.relationship_value : 0;
+    const emotion = slot.dynamic_state ? slot.dynamic_state.current_emotion : 'ปกติ';
+
+    card.innerHTML = `
+      <div class="slot-meta">
+        <span class="slot-name">${slot.slot_name || 'การเดินทาง'}</span>
+        <div class="slot-stats-row">
+          <span><i class="fa-regular fa-clock"></i> ${new Date(slot.updated_at).toLocaleString('th-TH')}</span>
+          <span><i class="fa-solid fa-comments"></i> ${turnCount} เทิร์น</span>
+          <span style="color: var(--accent-rose);"><i class="fa-solid fa-heart"></i> ความผูกพัน: ${relVal >= 0 ? '+' : ''}${relVal}</span>
+          <span style="color: var(--accent-amber);"><i class="fa-regular fa-face-smile"></i> ${emotion}</span>
+        </div>
+      </div>
+      <div class="slot-actions">
+        <button class="btn btn-secondary btn-sm btn-delete-slot" data-slot-id="${slot.id}" title="ลบเซฟนี้">
+          <i class="fa-solid fa-trash"></i>
+        </button>
+        <button class="btn btn-primary btn-sm btn-play-slot" data-slot-id="${slot.id}">
+          <i class="fa-solid fa-door-open"></i> เล่นต่อ
+        </button>
+      </div>
+    `;
+
+    Elements.slots.container.appendChild(card);
+  });
+
+  // Attach slot actions
+  document.querySelectorAll('.btn-play-slot').forEach(btn => {
+    btn.addEventListener('click', () => {
+      openStoryRoom(btn.dataset.slotId);
+    });
+  });
+
+  document.querySelectorAll('.btn-delete-slot').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (confirm('คุณต้องการลบโฟลเดอร์เซฟนี้ใช่หรือไม่? ข้อมูลการสนทนาจะหายไปอย่างถาวร')) {
+        await API.deleteSlot(btn.dataset.slotId);
+        showToast('ลบโฟลเดอร์เซฟเรียบร้อย', 'info');
+        loadSaveSlots(State.activeWorld.id, State.activeCharacter.id);
+      }
+    });
+  });
+}
+
+async function createNewSlotHandler() {
+  if (!State.activeWorld || !State.activeCharacter) return;
+  try {
+    const slotName = `การเดินทาง ${new Date().toLocaleDateString('th-TH')} - ${new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}`;
+    const data = await API.createSlot({
+      world_id: State.activeWorld.id,
+      character_id: State.activeCharacter.id,
+      slot_name: slotName
+    });
+
+    showToast('สร้างโฟลเดอร์เซฟแยกอิสระพร้อมบทนำสำเร็จ!', 'success');
+    openStoryRoom(data.slot.id);
+  } catch (err) {
+    showToast('สร้างเซฟไม่สำเร็จ: ' + err.message, 'error');
+  }
+}
+
+// ============================================================================
+// VIEW 3: MAIN STORY & ROLEPLAY CHATROOM (KHUIAI UI)
+// ============================================================================
+async function openStoryRoom(slotId) {
+  try {
+    const data = await API.getSlot(slotId);
+    State.activeSlot = data.slot;
+    State.activeCharacter = data.character;
+    State.activeWorld = data.world;
+
+    updateHeaderUI();
+    renderChatMessages(State.activeSlot.history || []);
+    renderCodexDrawer();
+    renderInventoryDrawer();
+    renderPresetDrawer();
+
+    switchView('view-story');
+    scrollToBottom();
+  } catch (err) {
+    showToast('ไม่สามารถเปิดห้องเล่นได้: ' + err.message, 'error');
+  }
+}
+
+function updateHeaderUI() {
+  if (!State.activeCharacter || !State.activeSlot) return;
+
+  Elements.header.charAvatar.src = State.activeCharacter.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop';
+  Elements.header.charName.innerText = State.activeCharacter.name;
+  
+  const dynamicState = State.activeSlot.dynamic_state || {};
+  const emotion = dynamicState.current_emotion || 'ปกติ';
+  const relVal = dynamicState.relationship_value || 0;
+  const relStatus = dynamicState.relationship_status || 'เป็นกลาง';
+
+  Elements.header.emotionPill.innerText = `😊 ${emotion}`;
+  Elements.header.relStatus.innerText = relStatus;
+  Elements.header.relScore.innerText = (relVal >= 0 ? '+' : '') + relVal;
+
+  const percentage = Math.min(100, Math.max(5, ((relVal + 50) / 100) * 100));
+  Elements.header.relBar.style.width = percentage + '%';
+
+  Elements.story.welcomeTitle.innerText = `การเดินทางร่วมกับ ${State.activeCharacter.name}`;
+  Elements.story.welcomeDesc.innerText = State.activeCharacter.short_desc || 'พร้อมสำหรับการผจญภัยและการพูดคุย';
+}
+
+function renderChatMessages(history) {
+  Elements.story.messagesList.innerHTML = '';
+
+  if (!history || history.length === 0) {
+    Elements.story.welcomeCard.style.display = 'block';
+    return;
+  }
+
+  Elements.story.welcomeCard.style.display = 'none';
+
+  history.forEach((msg, idx) => {
+    const msgEl = createMessageElement(msg, idx === history.length - 1);
+    Elements.story.messagesList.appendChild(msgEl);
+  });
+}
+
+function createMessageElement(msg, isLast) {
+  const item = document.createElement('div');
+  item.className = `message-item ${msg.role === 'user' ? 'user-message' : 'ai-message'}`;
+
+  if (msg.role === 'user') {
+    const isDo = msg.type === 'Do';
+    item.innerHTML = `
+      <div class="user-bubble">
+        <span class="user-tag-pill">${isDo ? '⚔️ DO (กระทำ)' : '💬 SAY (คำพูด)'}</span>
+        <div>${escapeHtml(msg.content)}</div>
+      </div>
+    `;
+  } else {
+    // AI Storyteller / Prologue Message
+    let fateHtml = '';
+    if (msg.fateResult && msg.fateResult.badgeText) {
+      fateHtml = `
+        <div class="fate-badge-card ${msg.fateResult.tier}">
+          <span>${msg.fateResult.badgeText}</span>
+        </div>
+      `;
+    }
+
+    let prologueRibbon = '';
+    if (msg.is_prologue) {
+      prologueRibbon = `
+        <div class="prologue-ribbon">
+          <i class="fa-solid fa-book-open"></i>
+          <span>บทนำเปิดฉากการเดินทาง (Prologue)</span>
+        </div>
+      `;
+    }
+
+    let consequenceHtml = '';
+    if (msg.consequence && msg.consequence.consequence_summary && msg.consequence.consequence_summary !== 'การสนทนาดำเนินต่อไป') {
+      consequenceHtml = `
+        <div class="consequence-alert-pill">
+          <i class="fa-solid fa-sparkles"></i>
+          <span>${escapeHtml(msg.consequence.consequence_summary)}</span>
+        </div>
+      `;
+    }
+
+    const formattedBody = formatProseContent(msg.content);
+
+    item.innerHTML = `
+      ${prologueRibbon}
+      ${fateHtml}
+      <div class="ai-prose-bubble ${msg.is_prologue ? 'is-prologue-card' : ''}">
+        ${formattedBody}
+        ${consequenceHtml}
+      </div>
+    `;
+  }
+
+  return item;
+}
+
+function formatProseContent(rawText) {
+  if (!rawText) return '';
+  const paragraphs = rawText.split('\n\n').filter(p => p.trim());
+  
+  return paragraphs.map(para => {
+    let formatted = escapeHtml(para);
+    formatted = formatted.replace(/"([^"]+)"/g, '<span class="ai-dialogue">"$1"</span>');
+    formatted = formatted.replace(/“([^”]+)”/g, '<span class="ai-dialogue">“$1”</span>');
+    return `<p>${formatted}</p>`;
+  }).join('');
+}
+
+function renderDiscoveredNpcPrompt(npc) {
+  if (!npc || !npc.name) return;
+
+  const card = document.createElement('div');
+  card.className = 'npc-discovery-card';
+  card.id = 'npc-prompt-' + Date.now();
+  card.innerHTML = `
+    <div class="npc-discovery-header">
+      <i class="fa-solid fa-user-plus"></i>
+      <span>พบตัวละครใหม่: <strong>${escapeHtml(npc.name)}</strong> (${escapeHtml(npc.role || 'NPC')})</span>
+    </div>
+    <div class="npc-discovery-desc">${escapeHtml(npc.brief_desc || 'ตัวละครที่เพิ่งมีปฏิสัมพันธ์ในเนื้อเรื่อง')}</div>
+    <div class="npc-discovery-actions">
+      <button class="btn btn-sm btn-primary btn-remember-npc">
+        <i class="fa-solid fa-bookmark"></i> ✅ จดจำลง Worldbook
+      </button>
+      <button class="btn btn-sm btn-ghost btn-ignore-npc">
+        <i class="fa-solid fa-xmark"></i> ❌ ไม่จำ (ปล่อยผ่าน)
+      </button>
+    </div>
+  `;
+
+  Elements.story.messagesList.appendChild(card);
+  scrollToBottom();
+
+  card.querySelector('.btn-remember-npc')?.addEventListener('click', async () => {
+    try {
+      const res = await API.rememberNPC(State.activeSlot.id, npc);
+      State.activeSlot = res.slot;
+      renderCodexDrawer();
+      card.innerHTML = `
+        <div style="color: var(--accent-emerald); font-size: 13px; font-weight: 600;">
+          <i class="fa-solid fa-circle-check"></i> บันทึก <strong>${escapeHtml(npc.name)}</strong> ลงใน Worldbook & Codex เรียบร้อยแล้ว!
+        </div>
+      `;
+      showToast(`จดจำตัวละคร ${npc.name} เรียบร้อย!`, 'success');
+      setTimeout(() => card.remove(), 3000);
+    } catch (err) {
+      showToast('จดจำตัวละครไม่สำเร็จ: ' + err.message, 'error');
+    }
+  });
+
+  card.querySelector('.btn-ignore-npc')?.addEventListener('click', () => {
+    card.style.opacity = '0';
+    setTimeout(() => card.remove(), 250);
+  });
+}
+
+function scrollToBottom() {
+  setTimeout(() => {
+    Elements.story.feed.scrollTop = Elements.story.feed.scrollHeight;
+  }, 50);
+}
+
+// ============================================================================
+// TURN EXECUTION (FAST & TOKEN-CONTROLLED PIPELINE)
+// ============================================================================
+async function handleSendTurn() {
+  if (State.isLoadingTurn || !State.activeSlot) return;
+
+  const text = Elements.story.input.value.trim();
+  if (!text) return;
+
+  const mode = State.currentMode;
+  const enableDice = Elements.story.chkEnableDice.checked;
+
+  Elements.story.input.value = '';
+  Elements.story.input.style.height = 'auto';
+
+  const userTurn = {
+    role: 'user',
+    type: mode,
+    content: text
+  };
+
+  Elements.story.welcomeCard.style.display = 'none';
+  Elements.story.messagesList.appendChild(createMessageElement(userTurn, true));
+  scrollToBottom();
+
+  State.isLoadingTurn = true;
+  Elements.story.btnSend.disabled = true;
+  Elements.story.typingIndicator.style.display = 'flex';
+
+  try {
+    const res = await API.sendTurn(State.activeSlot.id, {
+      type: mode,
+      text: text
+    }, {
+      skipRoll: !enableDice
+    });
+
+    State.activeSlot.dynamic_state = res.dynamic_state;
+    State.activeSlot.inventory = res.inventory;
+    State.activeSlot.codex_notes = res.codex_notes;
+    State.activeSlot.discovered_npcs = res.discovered_npcs;
+    State.activeSlot.history.push(res.userTurn, res.aiTurn);
+
+    Elements.story.typingIndicator.style.display = 'none';
+    Elements.story.messagesList.appendChild(createMessageElement(res.aiTurn, true));
+    
+    // Check if a new NPC was discovered in this turn
+    if (res.discovered_npc && res.discovered_npc.name) {
+      renderDiscoveredNpcPrompt(res.discovered_npc);
+    }
+
+    updateHeaderUI();
+    renderCodexDrawer();
+    renderInventoryDrawer();
+    scrollToBottom();
+  } catch (err) {
+    Elements.story.typingIndicator.style.display = 'none';
+    showToast('เกิดข้อผิดพลาดในการประมวลผล: ' + err.message, 'error');
+  } finally {
+    State.isLoadingTurn = false;
+    Elements.story.btnSend.disabled = false;
+  }
+}
+
+// ============================================================================
+// REGENERATE & UNDO
+// ============================================================================
+async function handleRegenerate() {
+  if (State.isLoadingTurn || !State.activeSlot || State.activeSlot.history.length < 2) {
+    showToast('ยังไม่มีข้อความให้เขียนใหม่', 'info');
+    return;
+  }
+
+  State.isLoadingTurn = true;
+  Elements.story.typingIndicator.style.display = 'flex';
+  document.getElementById('typing-status-text').innerText = 'AI #3 กำลังเขียนคำบรรยายใหม่...';
+
+  try {
+    const res = await API.regenerate(State.activeSlot.id);
+    State.activeSlot.history[State.activeSlot.history.length - 1] = res.aiTurn;
+    
+    renderChatMessages(State.activeSlot.history);
+    showToast('เขียนคำบรรยายใหม่สำเร็จ!', 'success');
+  } catch (err) {
+    showToast('รีเจนไม่สำเร็จ: ' + err.message, 'error');
+  } finally {
+    State.isLoadingTurn = false;
+    Elements.story.typingIndicator.style.display = 'none';
+    document.getElementById('typing-status-text').innerText = 'DeepSeek กำลังประมวลผล...';
+  }
+}
+
+async function handleUndo() {
+  if (State.isLoadingTurn || !State.activeSlot) return;
+
+  try {
+    const res = await API.undoTurn(State.activeSlot.id);
+    State.activeSlot = res.slot;
+
+    updateHeaderUI();
+    renderChatMessages(State.activeSlot.history || []);
+    renderCodexDrawer();
+    renderInventoryDrawer();
+    showToast('ย้อนกลับสถานะสำเร็จ (Undo)', 'info');
+  } catch (err) {
+    showToast('ไม่มีย้อนกลับก่อนหน้านี้: ' + err.message, 'info');
+  }
+}
+
+// ============================================================================
+// DRAWERS & MODALS RENDERING
+// ============================================================================
+function renderCodexDrawer() {
+  if (!State.activeSlot || !State.activeCharacter) return;
+
+  const character = State.activeCharacter;
+  const slot = State.activeSlot;
+  const stats = character.static_profile?.base_stats || {};
+
+  let secretsHtml = '';
+  const codexNotes = slot.codex_notes || [];
+  
+  codexNotes.forEach(note => {
+    if (note.unlocked) {
+      secretsHtml += `
+        <div class="secret-note-card unlocked">
+          <div class="secret-title"><i class="fa-solid fa-unlock-keyhole"></i> ${escapeHtml(note.title)}</div>
+          <div class="secret-content">${escapeHtml(note.content)}</div>
+        </div>
+      `;
+    } else {
+      secretsHtml += `
+        <div class="secret-note-card">
+          <div class="secret-title"><i class="fa-solid fa-lock"></i> ??? (ความลับยังไม่เปิดเผย)</div>
+          <div class="secret-content" style="color: var(--text-dim); font-style: italic;">
+            คำใบ้: ${escapeHtml(note.hint || 'พูดคุยและสร้างความผูกพัน')}
+          </div>
+        </div>
+      `;
+    }
+  });
+
+  // Discovered NPCs Section
+  let npcsHtml = '';
+  const npcs = slot.discovered_npcs || [];
+  npcs.forEach(n => {
+    npcsHtml += `
+      <div class="discovered-npc-chip">
+        <div>
+          <strong>${escapeHtml(n.name)}</strong>
+          <span style="color: var(--text-dim); font-size: 11.5px; margin-left: 6px;">(${escapeHtml(n.role)})</span>
+          <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">${escapeHtml(n.brief_desc)}</p>
+        </div>
+        <span style="font-size: 11px; color: var(--accent-rose);"><i class="fa-solid fa-heart"></i> ${n.relationship_value || 0}</span>
+      </div>
+    `;
+  });
+
+  Elements.drawers.codexContent.innerHTML = `
+    <div class="codex-profile-card">
+      <img class="codex-avatar" src="${character.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop'}">
+      <div>
+        <h3 style="font-size: 16px; font-weight: 700;">${character.name}</h3>
+        <p style="font-size: 12px; color: var(--text-muted);">${character.short_desc || ''}</p>
+      </div>
+    </div>
+
+    <div>
+      <h4 style="font-size: 13px; font-weight: 600; margin-bottom: 8px; color: var(--text-dim);">ประวัติและภูมิหลัง</h4>
+      <p style="font-size: 13px; line-height: 1.6; color: var(--text-muted); background: var(--bg-card); padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--border-card);">
+        ${character.static_profile?.history || 'ไม่มีข้อมูลเพิ่มเติม'}
+      </p>
+    </div>
+
+    <div>
+      <h4 style="font-size: 13px; font-weight: 600; margin-bottom: 8px; color: var(--text-dim);">ค่าพลังพื้นฐาน (Base Stats Modifier)</h4>
+      <div class="codex-stats-grid">
+        <div class="stat-box"><span>💪 พละกำลัง (STR)</span><strong>${stats.strength || 10}</strong></div>
+        <div class="stat-box"><span>🏃 ความว่องไว (AGI)</span><strong>${stats.agility || 10}</strong></div>
+        <div class="stat-box"><span>🧠 สติปัญญา (INT)</span><strong>${stats.intelligence || 10}</strong></div>
+        <div class="stat-box"><span>✨ เสน่ห์/เจรจา (CHA)</span><strong>${stats.charisma || 10}</strong></div>
+        <div class="stat-box" style="grid-column: 1/-1;"><span>👁️ สัมผัสพิเศษ (PER)</span><strong>${stats.perception || 10}</strong></div>
+      </div>
+    </div>
+
+    ${npcs.length > 0 ? `
+    <div>
+      <h4 style="font-size: 13px; font-weight: 600; margin-bottom: 8px; color: var(--primary);"><i class="fa-solid fa-users"></i> ตัวละครที่จดจำในโลกนี้ (${npcs.length})</h4>
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        ${npcsHtml}
+      </div>
+    </div>
+    ` : ''}
+
+    <div>
+      <h4 style="font-size: 13px; font-weight: 600; margin-bottom: 8px; color: var(--accent-amber);">บันทึกลับและความทรงจำ (Secret Notes)</h4>
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        ${secretsHtml || '<span style="font-size: 12px; color: var(--text-dim);">ไม่มีบันทึกลับ</span>'}
+      </div>
+    </div>
+  `;
+}
+
+function renderInventoryDrawer() {
+  if (!State.activeSlot) return;
+  const items = State.activeSlot.inventory || [];
+  Elements.drawers.inventoryList.innerHTML = '';
+
+  if (items.length === 0) {
+    Elements.drawers.inventoryList.innerHTML = `
+      <div style="text-align: center; padding: 20px; color: var(--text-dim);">ไม่มีไอเทมในกระเป๋า</div>
+    `;
+    return;
+  }
+
+  items.forEach((item, idx) => {
+    const el = document.createElement('div');
+    el.className = 'inv-item';
+    el.innerHTML = `
+      <span><i class="fa-solid fa-cube" style="color: var(--accent-amber); margin-right: 8px;"></i> ${escapeHtml(item)}</span>
+      <button class="btn btn-ghost btn-sm btn-remove-item" data-idx="${idx}" title="ทิ้งไอเทม">&times;</button>
+    `;
+    Elements.drawers.inventoryList.appendChild(el);
+  });
+
+  document.querySelectorAll('.btn-remove-item').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const idx = parseInt(btn.dataset.idx, 10);
+      State.activeSlot.inventory.splice(idx, 1);
+      await API.updateInventory(State.activeSlot.id, State.activeSlot.inventory);
+      renderInventoryDrawer();
+    });
+  });
+}
+
+function renderPresetDrawer() {
+  if (!State.activeSlot) return;
+  const preset = State.activeSlot.style_preset || PRESET_TEMPLATES.drama;
+
+  Elements.drawers.presetTone.value = preset.tone_directive || '';
+  Elements.drawers.presetProse.value = preset.prose_style || '';
+  Elements.drawers.presetPacing.value = preset.pacing || '';
+  Elements.drawers.presetPov.value = preset.pronoun_pov || '';
+  Elements.drawers.presetCustomInst.value = preset.custom_instructions || '';
+  
+  const tokens = preset.max_response_tokens || 500;
+  Elements.drawers.presetTokens.value = tokens;
+  Elements.drawers.presetTokensVal.innerText = `${tokens} tokens`;
+
+  updateChipActiveState(tokens);
+}
+
+function updateChipActiveState(tokens) {
+  document.querySelectorAll('.btn-token-chip').forEach(chip => {
+    if (parseInt(chip.dataset.tokens, 10) === parseInt(tokens, 10)) {
+      chip.classList.add('active');
+    } else {
+      chip.classList.remove('active');
+    }
+  });
+}
+
+function populateSettings(settings) {
+  if (!settings) return;
+  Elements.drawers.apiKey.value = settings.apiKey || '';
+  Elements.drawers.modelName.value = settings.model || 'deepseek-chat';
+  Elements.drawers.baseURL.value = settings.baseURL || 'https://api.deepseek.com';
+  Elements.drawers.temperature.value = settings.temperature || 0.85;
+  Elements.drawers.tempVal.innerText = settings.temperature || 0.85;
+  
+  const tokens = settings.maxTokens || 500;
+  Elements.drawers.globalTokens.value = tokens;
+  Elements.drawers.globalTokensVal.innerText = tokens;
+
+  if (Elements.drawers.headerApiDot) {
+    if (settings.apiKey && settings.apiKey.trim()) {
+      Elements.drawers.headerApiDot.className = 'api-status-dot green';
+    } else {
+      Elements.drawers.headerApiDot.className = 'api-status-dot red';
+    }
+  }
+}
+
+// ============================================================================
+// EVENT LISTENERS & MODAL CONTROLS
+// ============================================================================
+function setupEventListeners() {
+  // Navigation
+  document.getElementById('btn-home')?.addEventListener('click', () => switchView('view-browse'));
+  Elements.slots.btnBack?.addEventListener('click', () => switchView('view-browse'));
+  Elements.slots.btnNewSlot?.addEventListener('click', createNewSlotHandler);
+
+  // DO / SAY Toggle Mode
+  Elements.story.btnModeDo?.addEventListener('click', () => setInteractionMode('Do'));
+  Elements.story.btnModeSay?.addEventListener('click', () => setInteractionMode('Say'));
+
+  // Story Input & Sending
+  Elements.story.btnSend?.addEventListener('click', handleSendTurn);
+  Elements.story.input?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendTurn();
+    }
+  });
+
+  // Auto-resize textarea
+  Elements.story.input?.addEventListener('input', () => {
+    Elements.story.input.style.height = 'auto';
+    Elements.story.input.style.height = Math.min(120, Elements.story.input.scrollHeight) + 'px';
+  });
+
+  // Quick Action Buttons
+  Elements.story.btnRegen?.addEventListener('click', handleRegenerate);
+  Elements.story.btnUndo?.addEventListener('click', handleUndo);
+
+  // Drawers Toggle
+  document.getElementById('btn-open-codex')?.addEventListener('click', () => openDrawer('drawer-codex'));
+  document.getElementById('btn-open-inventory')?.addEventListener('click', () => openDrawer('drawer-inventory'));
+  document.getElementById('btn-open-preset')?.addEventListener('click', () => openDrawer('drawer-preset'));
+  document.getElementById('btn-open-slots')?.addEventListener('click', () => {
+    if (State.activeWorld && State.activeCharacter) {
+      openSaveSlotsView(State.activeWorld.id, State.activeCharacter.id);
+    }
+  });
+  document.getElementById('btn-open-settings')?.addEventListener('click', () => openDrawer('drawer-settings'));
+
+  // Drawer Close Buttons & Overlays
+  document.querySelectorAll('[data-close]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const drawerId = btn.dataset.close;
+      closeDrawer(drawerId);
+    });
+  });
+
+  // Preset Tokens Slider & Chips
+  Elements.drawers.presetTokens?.addEventListener('input', (e) => {
+    const val = e.target.value;
+    Elements.drawers.presetTokensVal.innerText = `${val} tokens`;
+    updateChipActiveState(val);
+  });
+
+  document.querySelectorAll('.btn-token-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const tokens = chip.dataset.tokens;
+      Elements.drawers.presetTokens.value = tokens;
+      Elements.drawers.presetTokensVal.innerText = `${tokens} tokens`;
+      updateChipActiveState(tokens);
+    });
+  });
+
+  // Style Preset Template Selector
+  Elements.drawers.selectTemplate?.addEventListener('change', (e) => {
+    const val = e.target.value;
+    if (PRESET_TEMPLATES[val]) {
+      const tmpl = PRESET_TEMPLATES[val];
+      Elements.drawers.presetTone.value = tmpl.tone_directive;
+      Elements.drawers.presetProse.value = tmpl.prose_style;
+      Elements.drawers.presetPacing.value = tmpl.pacing;
+      Elements.drawers.presetPov.value = tmpl.pronoun_pov;
+      if (tmpl.max_response_tokens) {
+        Elements.drawers.presetTokens.value = tmpl.max_response_tokens;
+        Elements.drawers.presetTokensVal.innerText = `${tmpl.max_response_tokens} tokens`;
+        updateChipActiveState(tmpl.max_response_tokens);
+      }
+    }
+  });
+
+  // Save Style Preset
+  Elements.drawers.btnSavePreset?.addEventListener('click', async () => {
+    if (!State.activeSlot) return;
+    const updatedPreset = {
+      tone_directive: Elements.drawers.presetTone.value,
+      prose_style: Elements.drawers.presetProse.value,
+      pacing: Elements.drawers.presetPacing.value,
+      pronoun_pov: Elements.drawers.presetPov.value,
+      custom_instructions: Elements.drawers.presetCustomInst.value,
+      max_response_tokens: parseInt(Elements.drawers.presetTokens.value, 10)
+    };
+
+    try {
+      await API.updatePreset(State.activeSlot.id, updatedPreset);
+      State.activeSlot.style_preset = updatedPreset;
+      showToast('บันทึกสไตล์ & ความเร็วสำเร็จ', 'success');
+      closeDrawer('drawer-preset');
+    } catch (err) {
+      showToast('บันทึกสไตล์ล้มเหลว: ' + err.message, 'error');
+    }
+  });
+
+  // Add Inventory Item
+  Elements.drawers.btnAddItem?.addEventListener('click', async () => {
+    const item = Elements.drawers.inputNewItem.value.trim();
+    if (!item || !State.activeSlot) return;
+
+    State.activeSlot.inventory.push(item);
+    Elements.drawers.inputNewItem.value = '';
+    await API.updateInventory(State.activeSlot.id, State.activeSlot.inventory);
+    renderInventoryDrawer();
+    showToast('เพิ่มไอเทมเรียบร้อย', 'success');
+  });
+
+  // Settings Handlers
+  Elements.drawers.globalTokens?.addEventListener('input', (e) => {
+    Elements.drawers.globalTokensVal.innerText = e.target.value;
+  });
+
+  Elements.drawers.temperature?.addEventListener('input', (e) => {
+    Elements.drawers.tempVal.innerText = e.target.value;
+  });
+
+  Elements.drawers.btnToggleKey?.addEventListener('click', () => {
+    const type = Elements.drawers.apiKey.type === 'password' ? 'text' : 'password';
+    Elements.drawers.apiKey.type = type;
+  });
+
+  // TEST & VERIFY API KEY BUTTON
+  Elements.drawers.btnTestApiKey?.addEventListener('click', async () => {
+    const apiKey = Elements.drawers.apiKey.value.trim();
+    const model = Elements.drawers.modelName.value.trim() || 'deepseek-chat';
+    const baseURL = Elements.drawers.baseURL.value.trim() || 'https://api.deepseek.com';
+
+    if (!apiKey) {
+      showToast('กรุณากรอก DeepSeek API Key ก่อนทดสอบ', 'error');
+      if (Elements.drawers.apiVerifyBox) {
+        Elements.drawers.apiVerifyBox.style.display = 'flex';
+        Elements.drawers.apiVerifyBox.className = 'api-verify-box error';
+        Elements.drawers.verifyHeaderRow.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> <span id="verify-status-title">ยังไม่ได้ระบุ API Key</span>';
+        Elements.drawers.verifyDetailText.innerText = 'กรุณาใส่ API Key ที่ขึ้นต้นด้วย sk-... แล้วกดทดสอบอีกครั้ง';
+      }
+      if (Elements.drawers.headerApiDot) Elements.drawers.headerApiDot.className = 'api-status-dot red';
+      return;
+    }
+
+    // Loading State
+    Elements.drawers.btnTestApiKey.disabled = true;
+    Elements.drawers.btnTestApiKey.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> กำลังทดสอบเชื่อมต่อ...';
+    if (Elements.drawers.apiVerifyBox) {
+      Elements.drawers.apiVerifyBox.style.display = 'flex';
+      Elements.drawers.apiVerifyBox.className = 'api-verify-box loading';
+      Elements.drawers.verifyHeaderRow.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> <span id="verify-status-title">กำลังทดสอบส่งข้อความไปยัง DeepSeek...</span>';
+      Elements.drawers.verifyDetailText.innerText = `กำลังส่ง Ping ไปที่ ${baseURL} (โมเดล: ${model})...`;
+    }
+
+    try {
+      const res = await API.verifySettings({ apiKey, baseURL, model });
+      
+      // Success (GREEN)
+      if (Elements.drawers.apiVerifyBox) {
+        Elements.drawers.apiVerifyBox.className = 'api-verify-box success';
+        Elements.drawers.verifyHeaderRow.innerHTML = `<i class="fa-solid fa-circle-check"></i> <span id="verify-status-title">เชื่อมต่อสำเร็จ! (ความเร็ว: ${res.latencyMs} ms)</span>`;
+        Elements.drawers.verifyDetailText.innerHTML = `✅ <strong>DeepSeek ตอบกลับ:</strong> "${escapeHtml(res.reply)}" | <strong>โมเดล:</strong> ${escapeHtml(res.model)} | <strong>สถานะ:</strong> พร้อมใช้งาน 100%`;
+      }
+      if (Elements.drawers.headerApiDot) Elements.drawers.headerApiDot.className = 'api-status-dot green';
+
+      showToast(`เชื่อมต่อ DeepSeek API สำเร็จ (${res.latencyMs}ms)`, 'success');
+
+      // Auto-save verified settings
+      const settings = {
+        apiKey: apiKey,
+        model: model,
+        baseURL: baseURL,
+        temperature: parseFloat(Elements.drawers.temperature.value),
+        maxTokens: parseInt(Elements.drawers.globalTokens.value, 10)
+      };
+      await API.saveSettings(settings);
+    } catch (err) {
+      // Error (RED)
+      if (Elements.drawers.apiVerifyBox) {
+        Elements.drawers.apiVerifyBox.className = 'api-verify-box error';
+        Elements.drawers.verifyHeaderRow.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> <span id="verify-status-title">การเชื่อมต่อล้มเหลว! (Error)</span>`;
+        Elements.drawers.verifyDetailText.innerText = err.message || 'ไม่สามารถเชื่อมต่อกับ DeepSeek API ได้ กรุณาตรวจสอบ API Key หรืออินเทอร์เน็ต';
+      }
+      if (Elements.drawers.headerApiDot) Elements.drawers.headerApiDot.className = 'api-status-dot red';
+      showToast('การเชื่อมต่อล้มเหลว: ' + err.message, 'error');
+    } finally {
+      Elements.drawers.btnTestApiKey.disabled = false;
+      Elements.drawers.btnTestApiKey.innerHTML = '<i class="fa-solid fa-bolt" style="color: var(--accent-amber);"></i> ทดสอบเชื่อมต่อ & ส่งข้อความ (Verify Key)';
+    }
+  });
+
+  Elements.drawers.btnSaveSettings?.addEventListener('click', async () => {
+    const settings = {
+      apiKey: Elements.drawers.apiKey.value.trim(),
+      model: Elements.drawers.modelName.value.trim(),
+      baseURL: Elements.drawers.baseURL.value.trim(),
+      temperature: parseFloat(Elements.drawers.temperature.value),
+      maxTokens: parseInt(Elements.drawers.globalTokens.value, 10)
+    };
+
+    try {
+      await API.saveSettings(settings);
+      if (Elements.drawers.headerApiDot) {
+        Elements.drawers.headerApiDot.className = settings.apiKey ? 'api-status-dot green' : 'api-status-dot red';
+      }
+      showToast('บันทึกการตั้งค่า DeepSeek สำเร็จ', 'success');
+      closeDrawer('drawer-settings');
+    } catch (err) {
+      showToast('บันทึกการตั้งค่าไม่สำเร็จ: ' + err.message, 'error');
+    }
+  });
+
+  // ==========================================
+  // ADVANCED WORLD CREATION & TABS
+  // ==========================================
+  Elements.browse.btnCreateWorld?.addEventListener('click', () => {
+    Elements.advModal.modal.style.display = 'flex';
+  });
+
+  Elements.advModal.btnClose?.addEventListener('click', () => {
+    Elements.advModal.modal.style.display = 'none';
+  });
+
+  Elements.advModal.btnCancel?.addEventListener('click', () => {
+    Elements.advModal.modal.style.display = 'none';
+  });
+
+  // Modal tab buttons
+  document.querySelectorAll('.modal-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.modal-tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+
+      btn.classList.add('active');
+      const targetTab = document.getElementById(btn.dataset.tab);
+      if (targetTab) targetTab.classList.add('active');
+    });
+  });
+
+  // AI Generate Prologue button in creation modal
+  Elements.advModal.btnAiGenPrologue?.addEventListener('click', async () => {
+    const charName = Elements.advModal.charName.value.trim();
+    if (!charName) {
+      showToast('กรุณาระบุชื่อตัวละครก่อน', 'info');
+      return;
+    }
+
+    const btn = Elements.advModal.btnAiGenPrologue;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> AI กำลังแต่งบทนำ...';
+
+    try {
+      const res = await API.generateAIPrologue({
+        worldName: Elements.advModal.worldName.value.trim(),
+        worldDesc: Elements.advModal.worldDesc.value.trim(),
+        characterName: charName,
+        charDesc: Elements.advModal.charDesc.value.trim(),
+        charPersonality: Elements.advModal.charTags.value.split(',').map(t => t.trim()).filter(Boolean)
+      });
+
+      Elements.advModal.charPrologue.value = res.prologue;
+      showToast('AI แต่งบทนำเปิดฉากสำเร็จ!', 'success');
+    } catch (err) {
+      showToast('แต่งบทนำไม่สำเร็จ: ' + err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles" style="color: var(--accent-amber);"></i> ให้ AI ช่วยแต่งบทนำ';
+    }
+  });
+
+  // Submit Detailed World Creation
+  Elements.advModal.btnSubmit?.addEventListener('click', async () => {
+    const worldName = Elements.advModal.worldName.value.trim();
+    const charName = Elements.advModal.charName.value.trim();
+
+    if (!worldName || !charName) {
+      showToast('กรุณาระบุชื่อโลกและชื่อตัวละครหลัก', 'error');
+      return;
+    }
+
+    const worldPayload = {
+      name: worldName,
+      tag: Elements.advModal.worldTag.value.trim() || 'Fantasy',
+      description: Elements.advModal.worldDesc.value.trim(),
+      cover_image: Elements.advModal.worldCover.value.trim() || 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1000&auto=format&fit=crop',
+      lore_details: {
+        geography: Elements.advModal.loreGeo.value.trim(),
+        magic_rules: Elements.advModal.loreMagic.value.trim(),
+        factions: Elements.advModal.loreFactions.value.trim()
+      }
+    };
+
+    const invList = Elements.advModal.charInv.value.split(',').map(i => i.trim()).filter(Boolean);
+    const tagsList = Elements.advModal.charTags.value.split(',').map(t => t.trim()).filter(Boolean);
+
+    const codexNotes = [];
+    if (Elements.advModal.sec1Title.value.trim()) {
+      codexNotes.push({
+        id: 'sec_' + Date.now(),
+        title: Elements.advModal.sec1Title.value.trim(),
+        content: Elements.advModal.sec1Content.value.trim(),
+        hint: Elements.advModal.sec1Hint.value.trim() || 'พูดคุยและสร้างความผูกพัน',
+        unlocked: false
+      });
+    }
+
+    const charPayload = {
+      name: charName,
+      avatar: Elements.advModal.charAvatar.value.trim() || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=600&auto=format&fit=crop',
+      short_desc: Elements.advModal.charDesc.value.trim(),
+      personality_tags: tagsList,
+      opening_prologue: Elements.advModal.charPrologue.value.trim(),
+      static_profile: {
+        history: Elements.advModal.charHistory.value.trim(),
+        base_stats: {
+          strength: parseInt(Elements.advModal.statStr.value, 10) || 10,
+          agility: parseInt(Elements.advModal.statAgi.value, 10) || 10,
+          intelligence: parseInt(Elements.advModal.statInt.value, 10) || 10,
+          charisma: parseInt(Elements.advModal.statCha.value, 10) || 10,
+          perception: parseInt(Elements.advModal.statPer.value, 10) || 10
+        }
+      },
+      initial_inventory: invList.length > 0 ? invList : ['เหรียญเงิน 100 เหรียญ', 'สัมภาระเดินทาง'],
+      codex_notes: codexNotes
+    };
+
+    try {
+      await API.createAdvancedWorld(worldPayload, [charPayload]);
+      Elements.advModal.modal.style.display = 'none';
+      showToast('สร้างโลกและตัวละครละเอียดสำเร็จ!', 'success');
+      await loadInitialData();
+    } catch (err) {
+      showToast('บันทึกโลกไม่สำเร็จ: ' + err.message, 'error');
+    }
+  });
+
+  // ==========================================
+  // WORLDBOOK IMPORT & AI ANALYZER
+  // ==========================================
+  Elements.browse.btnImportWorldbook?.addEventListener('click', () => {
+    Elements.wbModal.modal.style.display = 'flex';
+  });
+
+  Elements.wbModal.btnClose?.addEventListener('click', () => {
+    Elements.wbModal.modal.style.display = 'none';
+  });
+
+  Elements.wbModal.btnCancel?.addEventListener('click', () => {
+    Elements.wbModal.modal.style.display = 'none';
+  });
+
+  Elements.wbModal.dropzone?.addEventListener('click', () => {
+    Elements.wbModal.fileInput.click();
+  });
+
+  Elements.wbModal.fileInput?.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        Elements.wbModal.rawInput.value = event.target.result;
+        showToast(`โหลดไฟล์ ${file.name} เรียบร้อย`, 'info');
+      };
+      reader.readAsText(file);
+    }
+  });
+
+  // Drag and drop support
+  Elements.wbModal.dropzone?.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    Elements.wbModal.dropzone.style.borderColor = 'var(--accent-amber)';
+  });
+
+  Elements.wbModal.dropzone?.addEventListener('dragleave', () => {
+    Elements.wbModal.dropzone.style.borderColor = 'var(--border-card)';
+  });
+
+  Elements.wbModal.dropzone?.addEventListener('drop', (e) => {
+    e.preventDefault();
+    Elements.wbModal.dropzone.style.borderColor = 'var(--border-card)';
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        Elements.wbModal.rawInput.value = event.target.result;
+        showToast(`โหลดไฟล์ ${file.name} เรียบร้อย`, 'info');
+      };
+      reader.readAsText(file);
+    }
+  });
+
+  // Start AI Worldbook Analysis
+  Elements.wbModal.btnStartAnalyze?.addEventListener('click', async () => {
+    const raw = Elements.wbModal.rawInput.value.trim();
+    if (!raw) {
+      showToast('กรุณาวางเนื้อหาหรืออัปโหลดไฟล์ Worldbook ก่อน', 'info');
+      return;
+    }
+
+    Elements.wbModal.analyzingBanner.style.display = 'flex';
+    Elements.wbModal.btnStartAnalyze.disabled = true;
+
+    try {
+      const parsed = await API.analyzeWorldbook(raw);
+      
+      if (parsed.world) {
+        Elements.advModal.worldName.value = parsed.world.name || '';
+        Elements.advModal.worldTag.value = parsed.world.tag || 'Fantasy';
+        Elements.advModal.worldDesc.value = parsed.world.description || '';
+        if (parsed.world.lore_details) {
+          Elements.advModal.loreGeo.value = parsed.world.lore_details.geography || '';
+          Elements.advModal.loreMagic.value = parsed.world.lore_details.magic_rules || '';
+          Elements.advModal.loreFactions.value = parsed.world.lore_details.factions || '';
+        }
+      }
+
+      if (parsed.characters && parsed.characters.length > 0) {
+        const char = parsed.characters[0];
+        Elements.advModal.charName.value = char.name || '';
+        Elements.advModal.charDesc.value = char.short_desc || '';
+        Elements.advModal.charTags.value = Array.isArray(char.personality_tags) ? char.personality_tags.join(', ') : '';
+        Elements.advModal.charPrologue.value = char.opening_prologue || '';
+        
+        if (char.static_profile) {
+          Elements.advModal.charHistory.value = char.static_profile.history || '';
+          if (char.static_profile.base_stats) {
+            Elements.advModal.statStr.value = char.static_profile.base_stats.strength || 14;
+            Elements.advModal.statAgi.value = char.static_profile.base_stats.agility || 12;
+            Elements.advModal.statInt.value = char.static_profile.base_stats.intelligence || 10;
+            Elements.advModal.statCha.value = char.static_profile.base_stats.charisma || 14;
+            Elements.advModal.statPer.value = char.static_profile.base_stats.perception || 13;
+          }
+        }
+
+        if (Array.isArray(char.initial_inventory)) {
+          Elements.advModal.charInv.value = char.initial_inventory.join(', ');
+        }
+
+        if (Array.isArray(char.codex_notes) && char.codex_notes.length > 0) {
+          Elements.advModal.sec1Title.value = char.codex_notes[0].title || '';
+          Elements.advModal.sec1Content.value = char.codex_notes[0].content || '';
+          Elements.advModal.sec1Hint.value = char.codex_notes[0].hint || '';
+        }
+      }
+
+      Elements.wbModal.modal.style.display = 'none';
+      Elements.advModal.modal.style.display = 'flex';
+      showToast('AI สกัดข้อมูล Worldbook เรียบร้อย! ตรวจสอบและปรับแก้ได้ทันที', 'success');
+    } catch (err) {
+      showToast('การวิเคราะห์ Worldbook ล้มเหลว: ' + err.message, 'error');
+    } finally {
+      Elements.wbModal.analyzingBanner.style.display = 'none';
+      Elements.wbModal.btnStartAnalyze.disabled = false;
+    }
+  });
+
+  // Search Filter
+  Elements.browse.searchInput?.addEventListener('input', (e) => {
+    const q = e.target.value.toLowerCase().trim();
+    const filtered = State.worlds.filter(w => {
+      return w.name.toLowerCase().includes(q) ||
+        (w.tag && w.tag.toLowerCase().includes(q)) ||
+        (w.description && w.description.toLowerCase().includes(q));
+    });
+    renderWorldsList(filtered);
+  });
+
+  // Tag filter pills
+  document.querySelectorAll('.filter-pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+
+      const tag = pill.dataset.tag;
+      if (tag === 'all') {
+        renderWorldsList(State.worlds);
+      } else {
+        const filtered = State.worlds.filter(w => w.tag && w.tag.toLowerCase().includes(tag.toLowerCase()));
+        renderWorldsList(filtered);
+      }
+    });
+  });
+}
+
+function setInteractionMode(mode) {
+  State.currentMode = mode;
+  if (mode === 'Do') {
+    Elements.story.btnModeDo.classList.add('active');
+    Elements.story.btnModeSay.classList.remove('active');
+    Elements.story.modeLabel.innerText = 'Do';
+    Elements.story.modeIndicator.innerHTML = '<i class="fa-solid fa-hand-fist"></i> <span>Do</span>';
+    Elements.story.input.placeholder = 'ระบุการกระทำทางกายภาพ/ยุทธวิธีของคุณ... เช่น "ชักดาบสั้นออกมาป้องกันตัว และมองหาทางหนีทีไล่"';
+  } else {
+    Elements.story.btnModeSay.classList.add('active');
+    Elements.story.btnModeDo.classList.remove('active');
+    Elements.story.modeLabel.innerText = 'Say';
+    Elements.story.modeIndicator.innerHTML = '<i class="fa-solid fa-comment-dots"></i> <span>Say</span>';
+    Elements.story.input.placeholder = 'พิมพ์คำพูดหรือแสดงความรู้สึกของคุณ... เช่น "เราไม่ได้มาที่นี่เพื่อเป็นศัตรูกับเจ้า วางดาบลงก่อนเถอะ"';
+  }
+}
+
+function openDrawer(drawerId) {
+  const el = document.getElementById(drawerId);
+  if (el) el.classList.add('open');
+}
+
+function closeDrawer(drawerId) {
+  const el = document.getElementById(drawerId);
+  if (el) el.classList.remove('open');
+}
+
+function showToast(message, type = 'info') {
+  const container = document.getElementById('toast-container');
+  if (!container) return;
+
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  
+  let icon = 'fa-info-circle';
+  if (type === 'success') icon = 'fa-circle-check';
+  if (type === 'error') icon = 'fa-triangle-exclamation';
+
+  toast.innerHTML = `<i class="fa-solid ${icon}"></i> <span>${escapeHtml(message)}</span>`;
+  container.appendChild(toast);
+
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateX(100%)';
+    setTimeout(() => toast.remove(), 300);
+  }, 3500);
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+}

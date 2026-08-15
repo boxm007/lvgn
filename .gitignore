@@ -1,0 +1,21 @@
+# Dependency directories
+node_modules/
+
+# Local configuration
+.env
+
+# Dynamic save data and databases
+data/
+data/saves/
+data/worlds.json
+data/characters.json
+data/settings.json
+
+# Local backups & artifacts
+_backups/
+.gemini/
+*.log
+
+# OS metadata
+.DS_Store
+Thumbs.db

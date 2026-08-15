@@ -1,0 +1,25 @@
+{
+  "name": "long-voyage",
+  "version": "1.0.0",
+  "description": "Long Voyage — Self-hosted Roleplay & Story Engine with Khuiai-style UI and 4-Stage DeepSeek AI Pipeline",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node server/index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2"
+  },
+  "keywords": [
+    "roleplay",
+    "story-engine",
+    "khuiai",
+    "deepseek",
+    "sillytavern",
+    "ai-dungeon"
+  ],
+  "author": "",
+  "license": "MIT"
+}
