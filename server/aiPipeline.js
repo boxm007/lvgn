@@ -121,6 +121,36 @@ function generateMasterIndex(world, character, slot) {
 }
 
 /**
+ * Helper: Advance scene day/time/location
+ */
+function advanceSceneTime(currentScene, updates = {}) {
+  let day = currentScene?.day || 1;
+  let timeStr = currentScene?.time || "08:30";
+  let location = updates.location || currentScene?.location || "จุดเริ่มต้น";
+
+  if (updates.new_time) {
+    timeStr = updates.new_time;
+  } else {
+    // Advance 10-25 mins
+    const [hh, mm] = timeStr.split(':').map(Number);
+    let totalMinutes = (isNaN(hh) ? 8 : hh) * 60 + (isNaN(mm) ? 30 : mm) + Math.floor(Math.random() * 15 + 10);
+    if (totalMinutes >= 24 * 60) {
+      day += Math.floor(totalMinutes / (24 * 60));
+      totalMinutes %= 24 * 60;
+    }
+    const newH = String(Math.floor(totalMinutes / 60)).padStart(2, '0');
+    const newM = String(totalMinutes % 60).padStart(2, '0');
+    timeStr = `${newH}:${newM}`;
+  }
+
+  if (updates.day_increment) {
+    day += updates.day_increment;
+  }
+
+  return { day, time: timeStr, location };
+}
+
+/**
  * Execute 4-Stage Pipeline for a single turn (Speed-Optimized & Folder-Isolated)
  */
 async function executeTurnPipeline({ slotId, playerInput, customRoll = null }) {
@@ -252,6 +282,13 @@ async function executeTurnPipeline({ slotId, playerInput, customRoll = null }) {
   }
 
   // ==========================================
+  // ADVANCE SCENE TIME & LOCATION (Section 1, 7, 39)
+  // ==========================================
+  const currentScene = slot.dynamic_state.scene || { day: 1, time: "08:30", location: world.name || "จุดเริ่มต้น" };
+  const updatedScene = advanceSceneTime(currentScene, consequence.scene_updates || {});
+  slot.dynamic_state.scene = updatedScene;
+
+  // ==========================================
   // STAGE 3: AI #3 — Storyteller / Prose Craft Engine
   // ==========================================
   const storytellerSysPrompt = getStorytellerSystemPrompt(stylePreset);
@@ -261,9 +298,10 @@ async function executeTurnPipeline({ slotId, playerInput, customRoll = null }) {
     playerInput,
     fateResult,
     consequence,
-    recentHistory: slot.history.slice(-4),
-    rollingSummary: slot.rolling_summary,
-    customInstructions: stylePreset.custom_instructions
+    recentHistory: (slot.history || []).slice(-4),
+    rollingSummary: slot.rolling_summary || '',
+    scene: updatedScene,
+    customInstructions: stylePreset.custom_instructions || ''
   });
 
   const narrationText = await callDeepSeek({
@@ -278,6 +316,13 @@ async function executeTurnPipeline({ slotId, playerInput, customRoll = null }) {
   // ==========================================
   // STAGE 4: AI #4 — State Commit & Memory Cement
   // ==========================================
+  // Ensure compact scene status header format: [ วันที่ X | เวลา XX:XX น. | สถานที่: ... ]
+  const sceneHeader = `📍 **[ วันที่ ${updatedScene.day} | เวลา ${updatedScene.time} น. | สถานที่: ${updatedScene.location} ]**\n\n`;
+  let finalNarration = narrationText.trim();
+  if (!finalNarration.startsWith('📍') && !finalNarration.includes('[ วันที่')) {
+    finalNarration = sceneHeader + finalNarration;
+  }
+
   // Apply relationship deltas
   const deltas = consequence.state_changes?.relationship_deltas || [];
   let totalDelta = 0;
@@ -347,7 +392,8 @@ async function executeTurnPipeline({ slotId, playerInput, customRoll = null }) {
   const aiTurn = {
     id: 'msg_' + Date.now() + '_a',
     role: 'assistant',
-    content: narrationText,
+    content: finalNarration,
+    scene: updatedScene,
     fateResult: fateResult,
     consequence: consequence,
     timestamp: new Date().toISOString()

@@ -178,9 +178,13 @@ class Database {
       const preset = fs.existsSync(path.join(slotPath, 'preset.json')) ? JSON.parse(fs.readFileSync(path.join(slotPath, 'preset.json'), 'utf8')) : {};
       const snapshots = fs.existsSync(path.join(slotPath, 'snapshots.json')) ? JSON.parse(fs.readFileSync(path.join(slotPath, 'snapshots.json'), 'utf8')) : [];
 
+      const defaultScene = { day: 1, time: "08:30", location: "จุดเริ่มต้น" };
+      const loadedState = state.dynamic_state || { relationship_value: 0, relationship_status: 'เป็นกลาง', current_emotion: 'ปกติ' };
+      if (!loadedState.scene) loadedState.scene = defaultScene;
+
       return {
         ...metadata,
-        dynamic_state: state.dynamic_state || { relationship_value: 0, relationship_status: 'เป็นกลาง', current_emotion: 'ปกติ' },
+        dynamic_state: loadedState,
         inventory: inventory,
         codex_notes: codex.notes || [],
         discovered_npcs: codex.discovered_npcs || [],
@@ -210,7 +214,8 @@ class Database {
         id: 'msg_prologue_' + Date.now(),
         role: 'assistant',
         is_prologue: true,
-        content: character.opening_prologue.trim(),
+        content: `📍 **[ วันที่ 1 | เวลา 08:30 น. | สถานที่: ${world ? world.name : 'จุดเริ่มต้น'} ]**\n\n` + character.opening_prologue.trim(),
+        scene: { day: 1, time: "08:30", location: world ? world.name : "จุดเริ่มต้น" },
         timestamp: new Date().toISOString()
       });
     }
@@ -224,8 +229,13 @@ class Database {
       updated_at: new Date().toISOString()
     };
 
+    const initialDynamicState = JSON.parse(JSON.stringify(character.dynamic_state || { relationship_value: 0, relationship_status: 'เป็นกลาง', current_emotion: 'ปกติ' }));
+    if (!initialDynamicState.scene) {
+      initialDynamicState.scene = { day: 1, time: "08:30", location: world ? world.name : "จุดเริ่มต้น" };
+    }
+
     const state = {
-      dynamic_state: JSON.parse(JSON.stringify(character.dynamic_state)),
+      dynamic_state: initialDynamicState,
       rolling_summary: ''
     };
 

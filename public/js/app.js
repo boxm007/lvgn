@@ -26,14 +26,6 @@ const PRESET_TEMPLATES = {
     pronoun_pov: 'บุคคลที่ 2 (คุณ) สำหรับผู้เล่น และบุคคลที่ 3 สำหรับตัวละคร',
     max_response_tokens: 500
   },
-  dark: {
-    preset_name: 'ดาร์กกดดัน (Dark & Gritty)',
-    tone_directive: 'โทนหนักหน่วง โลกไม่ปรานีต่อตัวละคร บรรยายผลของความรุนแรง ความสูญเสีย หรือความล้มเหลวอย่างตรงไปตรงมา บรรยากาศกดดัน สิ้นหวัง ตัวละครไม่มี plot armor',
-    prose_style: 'ภาพพจน์ที่หนักแน่น กระชับ ไม่ประดับประดา ความเจ็บปวดและความสูญเสียรู้สึกได้จริง ไม่มีการเยียวยาด้วยน้ำเสียงบรรยายที่ soften ความจริง',
-    pacing: 'ตึงเครียด บีบคั้น รวดเร็วและไม่ประนีประนอม',
-    pronoun_pov: 'บุคคลที่ 2 (คุณ)',
-    max_response_tokens: 500
-  },
   warm: {
     preset_name: 'อบอุ่นหัวใจ (Warm & Bonding)',
     tone_directive: 'เน้นความสัมพันธ์เชิงบวก ความผูกพัน และช่วงเวลาสงบท่ามกลางความยากลำบาก ("ความหวังที่หาได้ยากและมีค่า") ให้พื้นที่กับความอบอุ่นเล็กๆ ระหว่างตัวละคร',
@@ -42,8 +34,64 @@ const PRESET_TEMPLATES = {
     pronoun_pov: 'บุคคลที่ 2 (คุณ)',
     max_response_tokens: 450
   },
+  romance: {
+    preset_name: 'โรแมนซ์ลึกซึ้ง (Romance)',
+    tone_directive: 'เน้นความใกล้ชิดทางอารมณ์ ความเปราะบาง ความไว้วางใจ และความโหยหาที่ค่อยๆ ก่อตัวขึ้นอย่างสมจริงผ่านสายตา การลังเล และการกระทำ',
+    prose_style: 'ภาษาประณีต เน้นแรงดึงดูด ภาษากาย สัมผัสเบาบาง และสิ่งที่ไม่ยอมพูดตรงๆ เคารพเจตจำนงของผู้เล่น',
+    pacing: 'ละเอียดอ่อน เน้นช่วงเวลาชวนประทับใจ',
+    pronoun_pov: 'บุคคลที่ 2 (คุณ)',
+    max_response_tokens: 500
+  },
+  dark: {
+    preset_name: 'ดาร์กกดดัน (Dark & Gritty)',
+    tone_directive: 'โทนหนักหน่วง โลกไม่ปรานีต่อตัวละคร บรรยายผลของความรุนแรง ความสูญเสีย หรือความล้มเหลวอย่างตรงไปตรงมา บรรยากาศกดดัน สิ้นหวัง ตัวละครไม่มี plot armor',
+    prose_style: 'ภาพพจน์ที่หนักแน่น กระชับ ไม่ประดับประดา ความเจ็บปวดและความสูญเสียรู้สึกได้จริง ไม่มีการเยียวยาด้วยน้ำเสียงบรรยายที่ soften ความจริง',
+    pacing: 'ตึงเครียด บีบคั้น รวดเร็วและไม่ประนีประนอม',
+    pronoun_pov: 'บุคคลที่ 2 (คุณ)',
+    max_response_tokens: 500
+  },
+  comedy: {
+    preset_name: 'ขบขันมีไหวพริบ (Comedy)',
+    tone_directive: 'เน้นจังหวะความตลกขบขัน ความเข้าใจผิดเล็กๆ ปมบุคลิกเฉพาะตัวละคร และบทสนทนาโต้ตอบที่คมคายเข้ากับสถานการณ์',
+    prose_style: 'กระฉับกระเฉง มีมุกตลกตามสถานการณ์โดยไม่ทำลายความเป็นจริงของโลก',
+    pacing: 'กระฉับกระเฉง จังหวะตบมุกคมชัด',
+    pronoun_pov: 'บุคคลที่ 2 (คุณ)',
+    max_response_tokens: 450
+  },
+  epic: {
+    preset_name: 'มหากาพย์ยิ่งใหญ่ (Epic)',
+    tone_directive: 'เน้นเหตุการณ์สเกลใหญ่ สงคราม ความขัดแย้งทางการเมือง การเปิดเผยความจริงครั้งประวัติศาสตร์ และบุคคลในตำนาน',
+    prose_style: 'ภาพพจน์กว้างขวาง อลังการ ภาษาทรงพลัง จังหวะมั่นคง',
+    pacing: 'มีน้ำหนัก น่าเกรงขาม สง่างาม',
+    pronoun_pov: 'บุคคลที่ 2 (คุณ)',
+    max_response_tokens: 600
+  },
+  mystery: {
+    preset_name: 'ลึกลับสืบสวน (Mystery)',
+    tone_directive: 'เน้นการทิ้งเบาะแส ข้อมูลไม่ครบถ้วน ความไม่แน่นอน ความขัดแย้งที่รอการคลี่คลาย และลางบอกเหตุ (Foreshadowing)',
+    prose_style: 'บรรยายสังเกตการณ์ที่จับสายตาทุกรายละเอียด ไม่รีบเฉลยคำตอบ ปล่อยให้ความสงสัยนำพาเรื่อง',
+    pacing: 'ระมัดระวัง ตรึงความสนใจ ชวนสืบค้น',
+    pronoun_pov: 'บุคคลที่ 2 (คุณ)',
+    max_response_tokens: 500
+  },
+  horror: {
+    preset_name: 'สยองขวัญกดประสาท (Horror)',
+    tone_directive: 'เน้นความหวาดกลัวจากความไม่แน่นอน ความโดดเดี่ยว ความเปราะบาง บรรยากาศหลอน และความตึงเครียดทางจิตวิทยา ไม่พึ่งพาเพียงเลือดสาด',
+    prose_style: 'บรรยายประสาทสัมผัสคมชัด เสียงแปลกปลอม ความมืด และความรู้สึกไม่ปลอดภัย',
+    pacing: 'กดดัน ค่อยๆ บีบรัดหัวใจ',
+    pronoun_pov: 'บุคคลที่ 2 (คุณ)',
+    max_response_tokens: 500
+  },
+  slice_of_life: {
+    preset_name: 'เรียบง่ายสมจริง (Slice of Life)',
+    tone_directive: 'จังหวะช้า เน้นรายละเอียดชีวิตประจำวัน ปฏิสัมพันธ์เล็กๆ ระหว่างตัวละคร มื้ออาหาร การเดินทาง และบทสนทนาทั่วไป',
+    prose_style: 'ภาษาเรียบง่าย เป็นธรรมชาติ เก็บเกี่ยวช่วงเวลาสงบสุขระหว่างการเดินทาง',
+    pacing: 'ช้า ผ่อนคลาย ละเมียดละไม',
+    pronoun_pov: 'บุคคลที่ 2 (คุณ)',
+    max_response_tokens: 400
+  },
   adventure: {
-    preset_name: 'ผจญภัยแอ็กชัน (Adventure)',
+    preset_name: 'ผจญภัยแอ็กชัน (Action/Adventure)',
     tone_directive: 'จังหวะเร็ว กระชับ เน้น action และการเคลื่อนไหว เผชิญหน้ากับความท้าทายและการต่อสู้',
     prose_style: 'ประโยคสั้น กระแทก สร้างความรู้สึกเร่งด่วน ใช้ sensory detail ภายนอก (เสียง, การเคลื่อนไหว, เสี้ยววินาที) ลดการพรรณนาในจิตใจ เน้นสิ่งที่เกิดขึ้นภายนอก',
     pacing: 'รวดเร็ว ฉับไว น่าตื่นเต้น',
@@ -57,14 +105,6 @@ const PRESET_TEMPLATES = {
     pacing: 'แม่นยำ เด็ดขาด ตรงไปตรงมา',
     pronoun_pov: 'บุคคลที่ 2 (คุณ)',
     max_response_tokens: 450
-  },
-  slice_of_life: {
-    preset_name: 'เรียบง่ายสมจริง (Slice of Life)',
-    tone_directive: 'จังหวะช้า เน้นรายละเอียดชีวิตประจำวัน ปฏิสัมพันธ์เล็กๆ ระหว่างตัวละคร บทสนทนาทั่วไป และบรรยากาศของสถานที่',
-    prose_style: 'ภาษาเรียบง่าย เป็นธรรมชาติ เก็บเกี่ยวช่วงเวลาสงบสุขระหว่างการเดินทาง',
-    pacing: 'ช้า ผ่อนคลาย ละเมียดละไม',
-    pronoun_pov: 'บุคคลที่ 2 (คุณ)',
-    max_response_tokens: 400
   },
   custom: {
     preset_name: 'ปรับแต่งอิสระ (Custom Override)',
@@ -496,6 +536,38 @@ function renderChatMessages(history) {
   });
 }
 
+
+
+function formatProseContent(rawText, scene = null) {
+  if (!rawText) return '';
+  
+  let content = rawText;
+  let sceneChipHtml = '';
+
+  // Match 📍 **[ วันที่ X | เวลา XX:XX น. | สถานที่: ... ]**
+  const sceneMatch = content.match(/📍\s*\*\*\[\s*วันที่\s*([^|]+)\|\s*เวลา\s*([^|]+)\|\s*สถานที่:\s*([^\]]+)\]\*\*/);
+  if (sceneMatch) {
+    const day = sceneMatch[1].trim();
+    const time = sceneMatch[2].trim();
+    const loc = sceneMatch[3].trim();
+    sceneChipHtml = `<div class="scene-status-chip"><i class="fa-solid fa-location-dot"></i> วันที่ ${day} • ${time} • ${loc}</div>`;
+    content = content.replace(sceneMatch[0], '').trim();
+  } else if (scene) {
+    sceneChipHtml = `<div class="scene-status-chip"><i class="fa-solid fa-location-dot"></i> วันที่ ${scene.day || 1} • เวลา ${scene.time || '08:30'} น. • ${scene.location || 'จุดเริ่มต้น'}</div>`;
+  }
+
+  const paragraphs = content.split('\n\n').filter(p => p.trim());
+  
+  const bodyHtml = paragraphs.map(para => {
+    let formatted = escapeHtml(para);
+    formatted = formatted.replace(/"([^"]+)"/g, '<span class="ai-dialogue">"$1"</span>');
+    formatted = formatted.replace(/“([^”]+)”/g, '<span class="ai-dialogue">“$1”</span>');
+    return `<p>${formatted}</p>`;
+  }).join('');
+
+  return sceneChipHtml + bodyHtml;
+}
+
 function createMessageElement(msg, isLast) {
   const item = document.createElement('div');
   item.className = `message-item ${msg.role === 'user' ? 'user-message' : 'ai-message'}`;
@@ -539,7 +611,7 @@ function createMessageElement(msg, isLast) {
       `;
     }
 
-    const formattedBody = formatProseContent(msg.content);
+    const formattedBody = formatProseContent(msg.content, msg.scene);
 
     item.innerHTML = `
       ${prologueRibbon}
@@ -552,18 +624,6 @@ function createMessageElement(msg, isLast) {
   }
 
   return item;
-}
-
-function formatProseContent(rawText) {
-  if (!rawText) return '';
-  const paragraphs = rawText.split('\n\n').filter(p => p.trim());
-  
-  return paragraphs.map(para => {
-    let formatted = escapeHtml(para);
-    formatted = formatted.replace(/"([^"]+)"/g, '<span class="ai-dialogue">"$1"</span>');
-    formatted = formatted.replace(/“([^”]+)”/g, '<span class="ai-dialogue">“$1”</span>');
-    return `<p>${formatted}</p>`;
-  }).join('');
 }
 
 function renderDiscoveredNpcPrompt(npc) {
@@ -616,12 +676,86 @@ function renderDiscoveredNpcPrompt(npc) {
 
 function scrollToBottom() {
   setTimeout(() => {
-    Elements.story.feed.scrollTop = Elements.story.feed.scrollHeight;
+    if (Elements.story && Elements.story.feed) {
+      Elements.story.feed.scrollTop = Elements.story.feed.scrollHeight;
+    }
   }, 50);
 }
 
+/**
+ * Interactive Live 3D D20 Dice Rolling Animation
+ */
+function playD20LiveRollAnimation(fateResultPromise) {
+  return new Promise((resolve, reject) => {
+    const overlay = document.createElement('div');
+    overlay.className = 'd20-live-dice-overlay';
+    overlay.innerHTML = `
+      <div class="d20-dice-container">
+        <div class="d20-dice-hex" id="active-live-d20">
+          <span class="d20-live-number" id="active-live-d20-num">1</span>
+        </div>
+      </div>
+      <div class="d20-roll-info">
+        <div class="d20-roll-title"><i class="fa-solid fa-dice-d20"></i> กำลังทอยลูกเต๋า D20...</div>
+        <div class="d20-roll-desc" id="active-live-d20-desc">กำหนดชะตาและผลกระทบของฉาก</div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const numEl = overlay.querySelector('#active-live-d20-num');
+    const hexEl = overlay.querySelector('#active-live-d20');
+    const titleEl = overlay.querySelector('.d20-roll-title');
+    const descEl = overlay.querySelector('#active-live-d20-desc');
+
+    // Rapid spinning numbers (1-20)
+    let currentNum = 1;
+    const spinInterval = setInterval(() => {
+      currentNum = Math.floor(Math.random() * 20) + 1;
+      if (numEl) numEl.innerText = currentNum;
+    }, 60);
+
+    const startTime = Date.now();
+
+    fateResultPromise.then(res => {
+      const elapsed = Date.now() - startTime;
+      const remainingTime = Math.max(0, 900 - elapsed);
+
+      setTimeout(() => {
+        clearInterval(spinInterval);
+        const fate = res.fateResult || { d20: 10, tier: 'success', tier_th: 'สำเร็จ', total: 10, targetDC: 12 };
+        
+        if (numEl) numEl.innerText = fate.d20;
+        if (hexEl) {
+          hexEl.classList.add('settled');
+          if (fate.tier === 'critical_success' || fate.d20 === 20) {
+            hexEl.classList.add('critical-success');
+          } else if (fate.tier === 'critical_failure' || fate.d20 === 1) {
+            hexEl.classList.add('critical-failure');
+          }
+        }
+
+        if (titleEl) titleEl.innerHTML = `🎲 ผลลัพธ์: <strong>${fate.tier_th}</strong>`;
+        if (descEl) descEl.innerHTML = `[D20: ${fate.d20}] + [${fate.statName || 'Mod'}: ${fate.modifier >= 0 ? '+' : ''}${fate.modifier || 0}] = <strong>${fate.total}</strong> (DC: ${fate.targetDC || 12})`;
+
+        setTimeout(() => {
+          overlay.style.transition = 'opacity 0.3s ease';
+          overlay.style.opacity = '0';
+          setTimeout(() => {
+            overlay.remove();
+            resolve(res);
+          }, 300);
+        }, 750);
+      }, remainingTime);
+    }).catch(err => {
+      clearInterval(spinInterval);
+      overlay.remove();
+      reject(err);
+    });
+  });
+}
+
 // ============================================================================
-// TURN EXECUTION (FAST & TOKEN-CONTROLLED PIPELINE)
+// TURN EXECUTION (FAST & TOKEN-CONTROLLED PIPELINE WITH LIVE D20)
 // ============================================================================
 async function handleSendTurn() {
   if (State.isLoadingTurn || !State.activeSlot) return;
@@ -650,12 +784,23 @@ async function handleSendTurn() {
   Elements.story.typingIndicator.style.display = 'flex';
 
   try {
-    const res = await API.sendTurn(State.activeSlot.id, {
-      type: mode,
-      text: text
-    }, {
-      skipRoll: !enableDice
-    });
+    let res;
+    if (enableDice) {
+      const apiPromise = API.sendTurn(State.activeSlot.id, {
+        type: mode,
+        text: text
+      }, {
+        skipRoll: false
+      });
+      res = await playD20LiveRollAnimation(apiPromise);
+    } else {
+      res = await API.sendTurn(State.activeSlot.id, {
+        type: mode,
+        text: text
+      }, {
+        skipRoll: true
+      });
+    }
 
     State.activeSlot.dynamic_state = res.dynamic_state;
     State.activeSlot.inventory = res.inventory;
@@ -916,10 +1061,12 @@ function setupEventListeners() {
   Elements.story.btnModeDo?.addEventListener('click', () => setInteractionMode('Do'));
   Elements.story.btnModeSay?.addEventListener('click', () => setInteractionMode('Say'));
 
-  // Story Input & Sending
+  // Story Input & Sending (Mobile & Desktop Friendly)
   Elements.story.btnSend?.addEventListener('click', handleSendTurn);
   Elements.story.input?.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.isComposing) return;
+    const isMobile = window.innerWidth <= 768;
+    if (!isMobile && e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSendTurn();
     }
@@ -928,7 +1075,8 @@ function setupEventListeners() {
   // Auto-resize textarea
   Elements.story.input?.addEventListener('input', () => {
     Elements.story.input.style.height = 'auto';
-    Elements.story.input.style.height = Math.min(120, Elements.story.input.scrollHeight) + 'px';
+    const newHeight = Math.max(38, Math.min(140, Elements.story.input.scrollHeight));
+    Elements.story.input.style.height = newHeight + 'px';
   });
 
   // Quick Action Buttons

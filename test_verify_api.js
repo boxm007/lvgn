@@ -3,12 +3,14 @@ async function testApiVerification() {
 
   // Test 1: Valid Key
   console.log('\n1. Testing with Valid API Key...');
+  require('dotenv').config();
+  const validKey = process.env.DEEPSEEK_API_KEY || 'sk-test-key';
   try {
     const res = await fetch('http://localhost:3000/api/settings/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        apiKey: 'sk-bf130ef5a80f410d8eb1a85b8e1e5840',
+        apiKey: validKey,
         baseURL: 'https://api.deepseek.com',
         model: 'deepseek-chat'
       })
