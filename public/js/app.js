@@ -238,10 +238,21 @@ const Elements = {
   }
 };
 
+function initViewportHeight() {
+  const setVh = () => {
+    const vh = window.innerHeight * 0.01;
+    document.documentElement.style.setProperty('--vh', `${vh}px`);
+  };
+  setVh();
+  window.addEventListener('resize', setVh);
+  window.addEventListener('orientationchange', setVh);
+}
+
 // ============================================================================
 // INITIALIZATION
 // ============================================================================
 document.addEventListener('DOMContentLoaded', async () => {
+  initViewportHeight();
   setupEventListeners();
   await loadInitialData();
 });
@@ -1077,6 +1088,23 @@ function setupEventListeners() {
     Elements.story.input.style.height = 'auto';
     const newHeight = Math.max(38, Math.min(140, Elements.story.input.scrollHeight));
     Elements.story.input.style.height = newHeight + 'px';
+  });
+
+  // Focus event on mobile: Auto scroll into view
+  Elements.story.input?.addEventListener('focus', () => {
+    setTimeout(() => {
+      scrollToBottom();
+      Elements.story.input?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }, 250);
+  });
+
+  // Floating Quick-Summon Type Button (Mobile)
+  document.getElementById('btn-floating-type')?.addEventListener('click', () => {
+    if (Elements.story.input) {
+      Elements.story.input.focus();
+      scrollToBottom();
+      Elements.story.input.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
   });
 
   // Quick Action Buttons
