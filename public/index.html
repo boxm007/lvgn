@@ -586,37 +586,127 @@
           <div class="modal-header-left">
             <i class="fa-solid fa-file-import modal-icon" style="color: var(--accent-amber);"></i>
             <div>
-              <h3 class="modal-title">นำเข้า Worldbook / Lorebook (AI สรุป & สกัดข้อมูล)</h3>
-              <span class="modal-subtitle">อัปโหลดไฟล์ JSON, Character Card หรือวางข้อความบรรยาย AI จะวิเคราะห์และสร้างให้ทันที</span>
+              <h3 class="modal-title" id="wb-modal-title">นำเข้า Worldbook / Lorebook อัตโนมัติด้วย AI</h3>
+              <span class="modal-subtitle" id="wb-modal-subtitle">อัปโหลดไฟล์เดียวปึ้ง AI จะสกัดข้อมูลโลก ระบบพลัง และตัวละครให้แก้ไขก่อนยืนยัน</span>
             </div>
           </div>
           <button class="modal-close-btn" id="btn-close-worldbook-import">&times;</button>
         </div>
 
         <div class="modal-body">
-          <div class="upload-dropzone" id="worldbook-dropzone">
-            <i class="fa-solid fa-cloud-arrow-up dropzone-icon"></i>
-            <p><strong>คลิกเพื่อเลือกไฟล์ หรือลากไฟล์มาวางที่นี่</strong></p>
-            <span class="form-hint">รองรับไฟล์ .json, .txt, .md (Worldbook, Lorebook, Character Card)</span>
-            <input type="file" id="file-worldbook-input" accept=".json,.txt,.md" style="display: none;">
+          <!-- STEP 1: UPLOAD & INPUT -->
+          <div id="wb-step-upload">
+            <div class="upload-dropzone" id="worldbook-dropzone">
+              <i class="fa-solid fa-cloud-arrow-up dropzone-icon"></i>
+              <p><strong>คลิกเพื่อเลือกไฟล์ หรือลากไฟล์มาวางที่นี่</strong></p>
+              <span class="form-hint">รองรับไฟล์ .md, .txt, .json, .pdf (Worldbook, Lorebook, Character Card)</span>
+              <input type="file" id="file-worldbook-input" accept=".json,.txt,.md,.pdf" style="display: none;">
+            </div>
+
+            <div class="form-group" style="margin-top: 14px;">
+              <label>หรือ วางเนื้อหา / ข้อมูล Worldbook แบบข้อความล้วน:</label>
+              <textarea id="input-raw-worldbook" rows="6" class="form-textarea" placeholder="วางเนื้อหา Lorebook, ข้อมูลโลก, รายชื่อตัวละคร หรือบทบรรยายที่นี่..."></textarea>
+            </div>
+
+            <div id="wb-analyzing-indicator" class="analyzing-banner" style="display: none;">
+              <div class="dots-spinner"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+              <span id="wb-analyzing-text">DeepSeek กำลังวิเคราะห์ Worldbook และสกัดข้อมูลโลก ตัวละคร และบทนำ...</span>
+            </div>
           </div>
 
-          <div class="form-group" style="margin-top: 14px;">
-            <label>หรือ วางเนื้อหา / ข้อมูล Lorebook แบบข้อความล้วน:</label>
-            <textarea id="input-raw-worldbook" rows="6" class="form-textarea" placeholder="วางข้อมูล Worldbook, ข้อมูลฉาก, ตัวละคร หรือเรื่องย่อที่นี่..."></textarea>
-          </div>
+          <!-- STEP 2: INTERACTIVE EDITABLE PREVIEW & CONFIRMATION -->
+          <div id="wb-step-preview" style="display: none;">
+            <div class="preview-banner-alert">
+              <i class="fa-solid fa-wand-magic-sparkles"></i>
+              <span>AI สกัดข้อมูลเรียบร้อย! คุณสามารถตรวจสอบและแก้ไขข้อมูลทุกช่องได้ตามต้องการ ก่อนกดยืนยันการสร้าง</span>
+            </div>
 
-          <div id="wb-analyzing-indicator" class="analyzing-banner" style="display: none;">
-            <div class="dots-spinner"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
-            <span>DeepSeek กำลังวิเคราะห์ Worldbook และสกัดข้อมูลโลก ตัวละคร และบทนำ...</span>
+            <!-- SECTION 1: WORLD DETAILS -->
+            <div class="preview-section-card">
+              <h4 class="preview-section-title"><i class="fa-solid fa-globe"></i> 1. ข้อมูลโลกและระบบพลัง (World Details)</h4>
+              
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label>ชื่อโลก / จักรวาล *</label>
+                  <input type="text" id="wb-preview-world-name" class="form-input" placeholder="ชื่อโลก">
+                </div>
+                <div class="form-group">
+                  <label>หมวดหมู่ / แท็ก (Genre Tag)</label>
+                  <input type="text" id="wb-preview-world-tag" class="form-input" placeholder="Hero Academy, Dark Fantasy">
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label>คำอธิบายโลกและธีมหลัก *</label>
+                <textarea id="wb-preview-world-desc" rows="3" class="form-textarea" placeholder="คำอธิบายโลก"></textarea>
+              </div>
+
+              <div class="form-group">
+                <label>รูปภาพหน้าปกโลก (Cover Image URL)</label>
+                <input type="text" id="wb-preview-world-cover" class="form-input" placeholder="https://...">
+              </div>
+
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label>ภูมิศาสตร์ & สถานที่สำคัญ</label>
+                  <textarea id="wb-preview-lore-geo" rows="2" class="form-textarea" placeholder="สถานที่สำคัญ"></textarea>
+                </div>
+                <div class="form-group">
+                  <label>กฎของพลัง / ระบบเจตจำนง / วิทยาการ</label>
+                  <textarea id="wb-preview-lore-magic" rows="2" class="form-textarea" placeholder="กฎพลังพิเศษหรือเวทมนตร์"></textarea>
+                </div>
+              </div>
+
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label>ฝ่ายและองค์กร (Factions)</label>
+                  <input type="text" id="wb-preview-lore-factions" class="form-input" placeholder="ฝ่าย องค์กร สภานักเรียน">
+                </div>
+                <div class="form-group">
+                  <label>กฎ Canon เพิ่มเติม & ธรรมเนียมโลก</label>
+                  <input type="text" id="wb-preview-lore-custom" class="form-input" placeholder="แก่นเรื่องและกฎเฉพาะตัว">
+                </div>
+              </div>
+            </div>
+
+            <!-- SECTION 2: CHARACTERS LIST -->
+            <div class="preview-section-card" style="margin-top: 16px;">
+              <div class="flex-between" style="margin-bottom: 12px;">
+                <h4 class="preview-section-title" style="margin-bottom: 0;"><i class="fa-solid fa-users"></i> 2. รายชื่อตัวละครที่สกัดได้ (<span id="wb-chars-count">0</span> ตัวละคร)</h4>
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-wb-add-char">
+                  <i class="fa-solid fa-plus"></i> เพิ่มตัวละคร
+                </button>
+              </div>
+
+              <div id="wb-chars-preview-container" class="chars-preview-list">
+                <!-- Dynamically populated character cards -->
+              </div>
+            </div>
+
           </div>
         </div>
 
         <div class="modal-footer">
-          <button class="btn btn-ghost" id="btn-cancel-worldbook-import">ยกเลิก</button>
-          <button class="btn btn-primary" id="btn-start-analyze-worldbook">
-            <i class="fa-solid fa-wand-magic-sparkles"></i> สั่งให้ AI วิเคราะห์ Worldbook
-          </button>
+          <!-- FOOTER FOR STEP 1 -->
+          <div id="wb-footer-upload" class="flex-between" style="width: 100%;">
+            <button class="btn btn-ghost" id="btn-cancel-worldbook-import">ยกเลิก</button>
+            <button class="btn btn-primary" id="btn-start-analyze-worldbook">
+              <i class="fa-solid fa-wand-magic-sparkles"></i> สั่งให้ AI วิเคราะห์ Worldbook
+            </button>
+          </div>
+
+          <!-- FOOTER FOR STEP 2 (PREVIEW & CONFIRM) -->
+          <div id="wb-footer-preview" class="flex-between" style="width: 100%; display: none;">
+            <button class="btn btn-ghost" id="btn-wb-back-to-upload">
+              <i class="fa-solid fa-arrow-left"></i> กลับไปอัปโหลดใหม่
+            </button>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn btn-ghost" id="btn-cancel-worldbook-preview">ยกเลิก</button>
+              <button class="btn btn-primary" id="btn-confirm-save-worldbook">
+                <i class="fa-solid fa-circle-check"></i> ✅ ยืนยันการสร้าง Worldbook ลงในเกม
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

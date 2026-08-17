@@ -228,13 +228,35 @@ const Elements = {
   },
   wbModal: {
     modal: document.getElementById('modal-worldbook-import'),
+    title: document.getElementById('wb-modal-title'),
+    subtitle: document.getElementById('wb-modal-subtitle'),
     btnClose: document.getElementById('btn-close-worldbook-import'),
+    stepUpload: document.getElementById('wb-step-upload'),
+    stepPreview: document.getElementById('wb-step-preview'),
+    footerUpload: document.getElementById('wb-footer-upload'),
+    footerPreview: document.getElementById('wb-footer-preview'),
     btnCancel: document.getElementById('btn-cancel-worldbook-import'),
     btnStartAnalyze: document.getElementById('btn-start-analyze-worldbook'),
     dropzone: document.getElementById('worldbook-dropzone'),
     fileInput: document.getElementById('file-worldbook-input'),
     rawInput: document.getElementById('input-raw-worldbook'),
-    analyzingBanner: document.getElementById('wb-analyzing-indicator')
+    analyzingBanner: document.getElementById('wb-analyzing-indicator'),
+    analyzingText: document.getElementById('wb-analyzing-text'),
+    // Step 2 Preview fields
+    previewWorldName: document.getElementById('wb-preview-world-name'),
+    previewWorldTag: document.getElementById('wb-preview-world-tag'),
+    previewWorldDesc: document.getElementById('wb-preview-world-desc'),
+    previewWorldCover: document.getElementById('wb-preview-world-cover'),
+    previewLoreGeo: document.getElementById('wb-preview-lore-geo'),
+    previewLoreMagic: document.getElementById('wb-preview-lore-magic'),
+    previewLoreFactions: document.getElementById('wb-preview-lore-factions'),
+    previewLoreCustom: document.getElementById('wb-preview-lore-custom'),
+    charsContainer: document.getElementById('wb-chars-preview-container'),
+    charsCount: document.getElementById('wb-chars-count'),
+    btnAddChar: document.getElementById('btn-wb-add-char'),
+    btnBackToUpload: document.getElementById('btn-wb-back-to-upload'),
+    btnCancelPreview: document.getElementById('btn-cancel-worldbook-preview'),
+    btnConfirmSave: document.getElementById('btn-confirm-save-worldbook')
   }
 };
 
@@ -1422,9 +1444,236 @@ function setupEventListeners() {
   });
 
   // ==========================================
-  // WORLDBOOK IMPORT & AI ANALYZER
+  // WORLDBOOK IMPORT & AI ANALYZER (2-STEP SYSTEM)
   // ==========================================
+  function switchWbStep(step) {
+    if (step === 'preview') {
+      Elements.wbModal.stepUpload.style.display = 'none';
+      Elements.wbModal.footerUpload.style.display = 'none';
+      Elements.wbModal.stepPreview.style.display = 'block';
+      Elements.wbModal.footerPreview.style.display = 'flex';
+      if (Elements.wbModal.title) Elements.wbModal.title.innerText = '📝 ตรวจสอบและแก้ไข Worldbook ก่อนยืนยัน';
+      if (Elements.wbModal.subtitle) Elements.wbModal.subtitle.innerText = 'แก้ไขข้อมูลโลก ลอเร่ และตัวละครที่ AI สกัดได้ตามต้องการ แล้วกดยืนยันการสร้าง';
+    } else {
+      Elements.wbModal.stepUpload.style.display = 'block';
+      Elements.wbModal.footerUpload.style.display = 'flex';
+      Elements.wbModal.stepPreview.style.display = 'none';
+      Elements.wbModal.footerPreview.style.display = 'none';
+      if (Elements.wbModal.title) Elements.wbModal.title.innerText = 'นำเข้า Worldbook / Lorebook อัตโนมัติด้วย AI';
+      if (Elements.wbModal.subtitle) Elements.wbModal.subtitle.innerText = 'อัปโหลดไฟล์เดียวปึ้ง AI จะสกัดข้อมูลโลก ระบบพลัง และตัวละครให้แก้ไขก่อนยืนยัน';
+    }
+  }
+
+  function renderWbCharactersPreview(chars = []) {
+    if (!Elements.wbModal.charsContainer) return;
+    Elements.wbModal.charsContainer.innerHTML = '';
+    Elements.wbModal.charsCount.innerText = chars.length;
+
+    chars.forEach((c, idx) => {
+      const card = createWbCharPreviewCard(c, idx);
+      Elements.wbModal.charsContainer.appendChild(card);
+    });
+  }
+
+  function createWbCharPreviewCard(char, idx) {
+    const card = document.createElement('div');
+    card.className = 'char-preview-card';
+    card.dataset.idx = idx;
+
+    const name = char.name || `ตัวละครที่ ${idx + 1}`;
+    const role = char.role || 'นักเรียน / นักผจญภัย';
+    const avatar = char.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=400&auto=format&fit=crop';
+    const desc = char.short_desc || '';
+    const tags = Array.isArray(char.personality_tags) ? char.personality_tags.join(', ') : (char.personality_tags || '');
+    const history = char.static_profile?.history || char.history || '';
+    const stats = char.static_profile?.base_stats || char.base_stats || { strength: 10, agility: 10, intelligence: 10, charisma: 10, perception: 10 };
+    const inv = Array.isArray(char.initial_inventory) ? char.initial_inventory.join(', ') : (char.initial_inventory || '');
+    const codex = Array.isArray(char.codex_notes) ? char.codex_notes : [];
+    const sec1 = codex[0] || { title: '', content: '', hint: '' };
+    const sec2 = codex[1] || { title: '', content: '', hint: '' };
+    const prologue = char.opening_prologue || char.prologue || '';
+
+    card.innerHTML = `
+      <div class="char-preview-header">
+        <div class="char-preview-header-left">
+          <img src="${escapeHtml(avatar)}" alt="${escapeHtml(name)}" class="char-preview-avatar-thumb" onerror="this.src='https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=400&auto=format&fit=crop'">
+          <div>
+            <span class="char-preview-title">${escapeHtml(name)}</span>
+            <span class="char-preview-role-badge">${escapeHtml(role)}</span>
+          </div>
+        </div>
+        <div class="char-preview-header-actions">
+          <button type="button" class="btn-icon-subtle btn-toggle-body" title="ย่อ/ขยาย"><i class="fa-solid fa-chevron-down"></i></button>
+          <button type="button" class="btn-icon-subtle btn-delete-char" title="ลบตัวละครนี้" style="color: var(--status-bad);"><i class="fa-solid fa-trash-can"></i></button>
+        </div>
+      </div>
+      <div class="char-preview-body">
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label>ชื่อตัวละคร *</label>
+            <input type="text" class="form-input wb-char-name" value="${escapeHtml(name)}" placeholder="ชื่อตัวละคร">
+          </div>
+          <div class="form-group">
+            <label>บทบาท / ฉายา</label>
+            <input type="text" class="form-input wb-char-role" value="${escapeHtml(role)}" placeholder="เช่น ผู้ใช้ Will สายลม / นักเรียนทุน">
+          </div>
+        </div>
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label>รูปภาพอวตาร (Avatar URL)</label>
+            <input type="text" class="form-input wb-char-avatar" value="${escapeHtml(avatar)}" placeholder="https://...">
+          </div>
+          <div class="form-group">
+            <label>แท็กบุคลิกภาพ (คั่นด้วยจุลภาค)</label>
+            <input type="text" class="form-input wb-char-tags" value="${escapeHtml(tags)}" placeholder="ฉลาด, คิดมาก, กตัญญู">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>คำบรรยายสั้น (Bio / Short Desc)</label>
+          <textarea rows="2" class="form-textarea wb-char-desc" placeholder="คำบรรยายสั้นๆ">${escapeHtml(desc)}</textarea>
+        </div>
+        <div class="form-group">
+          <label>ประวัติความเป็นมาเชิงลึก (Lore & Backstory)</label>
+          <textarea rows="2" class="form-textarea wb-char-history" placeholder="ประวัติชีวิต ปมหลัง และเป้าหมาย">${escapeHtml(history)}</textarea>
+        </div>
+        <div class="form-group">
+          <label>ค่าพลังพื้นฐาน (Base Stats D20):</label>
+          <div class="stats-compact-grid">
+            <div class="stat-compact-box">
+              <span>💪 STR</span>
+              <input type="number" class="wb-stat-str" value="${stats.strength || 10}" min="1" max="30">
+            </div>
+            <div class="stat-compact-box">
+              <span>🏃 AGI</span>
+              <input type="number" class="wb-stat-agi" value="${stats.agility || 10}" min="1" max="30">
+            </div>
+            <div class="stat-compact-box">
+              <span>🧠 INT</span>
+              <input type="number" class="wb-stat-int" value="${stats.intelligence || 10}" min="1" max="30">
+            </div>
+            <div class="stat-compact-box">
+              <span>✨ CHA</span>
+              <input type="number" class="wb-stat-cha" value="${stats.charisma || 10}" min="1" max="30">
+            </div>
+            <div class="stat-compact-box">
+              <span>👁️ PER</span>
+              <input type="number" class="wb-stat-per" value="${stats.perception || 10}" min="1" max="30">
+            </div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>ไอเทมเริ่มต้น (Initial Inventory คั่นด้วยจุลภาค)</label>
+          <input type="text" class="form-input wb-char-inv" value="${escapeHtml(inv)}" placeholder="ไอเทมเริ่มต้น">
+        </div>
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label>บันทึกลับที่ 1 (Title / Hint)</label>
+            <input type="text" class="form-input wb-char-sec1-title" value="${escapeHtml(sec1.title || '')}" placeholder="หัวข้อความลับ" style="margin-bottom: 4px;">
+            <input type="text" class="form-input wb-char-sec1-hint" value="${escapeHtml(sec1.unlock_hint || sec1.hint || '')}" placeholder="คำใบ้ปลดล็อก">
+            <textarea rows="2" class="form-textarea wb-char-sec1-content" placeholder="เนื้อหาความลับที่แท้จริง" style="margin-top: 4px;">${escapeHtml(sec1.content || '')}</textarea>
+          </div>
+          <div class="form-group">
+            <label>บันทึกลับที่ 2 (Title / Hint)</label>
+            <input type="text" class="form-input wb-char-sec2-title" value="${escapeHtml(sec2.title || '')}" placeholder="หัวข้อความลับที่ 2" style="margin-bottom: 4px;">
+            <input type="text" class="form-input wb-char-sec2-hint" value="${escapeHtml(sec2.unlock_hint || sec2.hint || '')}" placeholder="คำใบ้ปลดล็อกที่ 2">
+            <textarea rows="2" class="form-textarea wb-char-sec2-content" placeholder="เนื้อหาความลับที่ 2" style="margin-top: 4px;">${escapeHtml(sec2.content || '')}</textarea>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>บทนำเปิดฉากการเดินทาง (Opening Prologue)</label>
+          <textarea rows="4" class="form-textarea wb-char-prologue" placeholder="บทนำเปิดฉากวรรณกรรมเข้มข้น...">${escapeHtml(prologue)}</textarea>
+        </div>
+      </div>
+    `;
+
+    // Toggle collapse
+    const header = card.querySelector('.char-preview-header');
+    const body = card.querySelector('.char-preview-body');
+    const btnToggle = card.querySelector('.btn-toggle-body');
+    header.addEventListener('click', (e) => {
+      if (e.target.closest('.btn-delete-char')) return;
+      body.classList.toggle('collapsed');
+      btnToggle.innerHTML = body.classList.contains('collapsed') ? '<i class="fa-solid fa-chevron-right"></i>' : '<i class="fa-solid fa-chevron-down"></i>';
+    });
+
+    // Delete character card
+    const btnDelete = card.querySelector('.btn-delete-char');
+    btnDelete.addEventListener('click', (e) => {
+      e.stopPropagation();
+      card.remove();
+      const remaining = Elements.wbModal.charsContainer.querySelectorAll('.char-preview-card').length;
+      Elements.wbModal.charsCount.innerText = remaining;
+    });
+
+    // Live update header name on name input
+    const inputName = card.querySelector('.wb-char-name');
+    const headerTitle = card.querySelector('.char-preview-title');
+    inputName.addEventListener('input', () => {
+      headerTitle.innerText = inputName.value.trim() || 'ตัวละครใหม่';
+    });
+
+    return card;
+  }
+
+  function getWbEditedCharacters() {
+    const cards = Elements.wbModal.charsContainer.querySelectorAll('.char-preview-card');
+    const chars = [];
+
+    cards.forEach(card => {
+      const name = card.querySelector('.wb-char-name')?.value.trim();
+      if (!name) return;
+
+      const role = card.querySelector('.wb-char-role')?.value.trim() || '';
+      const avatar = card.querySelector('.wb-char-avatar')?.value.trim() || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=400&auto=format&fit=crop';
+      const shortDesc = card.querySelector('.wb-char-desc')?.value.trim() || '';
+      const tags = (card.querySelector('.wb-char-tags')?.value || '').split(',').map(t => t.trim()).filter(Boolean);
+      const history = card.querySelector('.wb-char-history')?.value.trim() || '';
+      const stats = {
+        strength: parseInt(card.querySelector('.wb-stat-str')?.value, 10) || 10,
+        agility: parseInt(card.querySelector('.wb-stat-agi')?.value, 10) || 10,
+        intelligence: parseInt(card.querySelector('.wb-stat-int')?.value, 10) || 10,
+        charisma: parseInt(card.querySelector('.wb-stat-cha')?.value, 10) || 10,
+        perception: parseInt(card.querySelector('.wb-stat-per')?.value, 10) || 10
+      };
+      const inv = (card.querySelector('.wb-char-inv')?.value || '').split(',').map(i => i.trim()).filter(Boolean);
+      
+      const codexNotes = [];
+      const sec1Title = card.querySelector('.wb-char-sec1-title')?.value.trim();
+      const sec1Content = card.querySelector('.wb-char-sec1-content')?.value.trim();
+      const sec1Hint = card.querySelector('.wb-char-sec1-hint')?.value.trim();
+      if (sec1Title || sec1Content) {
+        codexNotes.push({ id: 'sec_' + Date.now() + '_1', title: sec1Title || 'ความลับ', content: sec1Content || '', hint: sec1Hint || 'พูดคุยและผูกพัน', unlocked: false });
+      }
+
+      const sec2Title = card.querySelector('.wb-char-sec2-title')?.value.trim();
+      const sec2Content = card.querySelector('.wb-char-sec2-content')?.value.trim();
+      const sec2Hint = card.querySelector('.wb-char-sec2-hint')?.value.trim();
+      if (sec2Title || sec2Content) {
+        codexNotes.push({ id: 'sec_' + Date.now() + '_2', title: sec2Title || 'ความลับที่ 2', content: sec2Content || '', hint: sec2Hint || 'เปิดใจในสถานการณ์วิกฤต', unlocked: false });
+      }
+
+      const prologue = card.querySelector('.wb-char-prologue')?.value.trim() || '';
+
+      chars.push({
+        name,
+        role,
+        avatar,
+        short_desc: shortDesc,
+        personality_tags: tags,
+        opening_prologue: prologue,
+        static_profile: { history, base_stats: stats },
+        dynamic_state: { relationship_value: 0, relationship_status: 'เป็นกลาง', current_emotion: 'ปกติ' },
+        initial_inventory: inv.length > 0 ? inv : ['กระเป๋าสัมภาระเดินทาง', 'เหรียญเงิน 50 เหรียญ'],
+        codex_notes: codexNotes
+      });
+    });
+
+    return chars;
+  }
+
+  // Open / Close modal
   Elements.browse.btnImportWorldbook?.addEventListener('click', () => {
+    switchWbStep('upload');
     Elements.wbModal.modal.style.display = 'flex';
   });
 
@@ -1436,6 +1685,30 @@ function setupEventListeners() {
     Elements.wbModal.modal.style.display = 'none';
   });
 
+  Elements.wbModal.btnCancelPreview?.addEventListener('click', () => {
+    Elements.wbModal.modal.style.display = 'none';
+  });
+
+  Elements.wbModal.btnBackToUpload?.addEventListener('click', () => {
+    switchWbStep('upload');
+  });
+
+  // Add new blank character in preview
+  Elements.wbModal.btnAddChar?.addEventListener('click', () => {
+    const currentCount = Elements.wbModal.charsContainer.querySelectorAll('.char-preview-card').length;
+    const newCard = createWbCharPreviewCard({
+      name: `ตัวละครใหม่ ${currentCount + 1}`,
+      role: 'นักเรียน / วีรชน',
+      personality_tags: ['จิตใจดี', 'มุ่งมั่น'],
+      base_stats: { strength: 12, agility: 12, intelligence: 12, charisma: 12, perception: 12 },
+      initial_inventory: ['สัมภาระเดินทาง']
+    }, currentCount);
+    Elements.wbModal.charsContainer.appendChild(newCard);
+    Elements.wbModal.charsCount.innerText = currentCount + 1;
+    newCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
+
+  // Dropzone file upload
   Elements.wbModal.dropzone?.addEventListener('click', () => {
     Elements.wbModal.fileInput.click();
   });
@@ -1476,7 +1749,7 @@ function setupEventListeners() {
     }
   });
 
-  // Start AI Worldbook Analysis
+  // Start AI Worldbook Analysis -> Switch to Live Editable Preview
   Elements.wbModal.btnStartAnalyze?.addEventListener('click', async () => {
     const raw = Elements.wbModal.rawInput.value.trim();
     if (!raw) {
@@ -1490,54 +1763,77 @@ function setupEventListeners() {
     try {
       const parsed = await API.analyzeWorldbook(raw);
       
+      // Populate World Details
       if (parsed.world) {
-        Elements.advModal.worldName.value = parsed.world.name || '';
-        Elements.advModal.worldTag.value = parsed.world.tag || 'Fantasy';
-        Elements.advModal.worldDesc.value = parsed.world.description || '';
+        Elements.wbModal.previewWorldName.value = parsed.world.name || '';
+        Elements.wbModal.previewWorldTag.value = parsed.world.tag || 'Hero Academy';
+        Elements.wbModal.previewWorldDesc.value = parsed.world.description || '';
+        Elements.wbModal.previewWorldCover.value = parsed.world.cover_image || 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1200&auto=format&fit=crop';
         if (parsed.world.lore_details) {
-          Elements.advModal.loreGeo.value = parsed.world.lore_details.geography || '';
-          Elements.advModal.loreMagic.value = parsed.world.lore_details.magic_rules || '';
-          Elements.advModal.loreFactions.value = parsed.world.lore_details.factions || '';
+          Elements.wbModal.previewLoreGeo.value = parsed.world.lore_details.geography || '';
+          Elements.wbModal.previewLoreMagic.value = parsed.world.lore_details.magic_rules || '';
+          Elements.wbModal.previewLoreFactions.value = parsed.world.lore_details.factions || '';
+          Elements.wbModal.previewLoreCustom.value = parsed.world.lore_details.custom_lore || '';
         }
       }
 
-      if (parsed.characters && parsed.characters.length > 0) {
-        const char = parsed.characters[0];
-        Elements.advModal.charName.value = char.name || '';
-        Elements.advModal.charDesc.value = char.short_desc || '';
-        Elements.advModal.charTags.value = Array.isArray(char.personality_tags) ? char.personality_tags.join(', ') : '';
-        Elements.advModal.charPrologue.value = char.opening_prologue || '';
-        
-        if (char.static_profile) {
-          Elements.advModal.charHistory.value = char.static_profile.history || '';
-          if (char.static_profile.base_stats) {
-            Elements.advModal.statStr.value = char.static_profile.base_stats.strength || 14;
-            Elements.advModal.statAgi.value = char.static_profile.base_stats.agility || 12;
-            Elements.advModal.statInt.value = char.static_profile.base_stats.intelligence || 10;
-            Elements.advModal.statCha.value = char.static_profile.base_stats.charisma || 14;
-            Elements.advModal.statPer.value = char.static_profile.base_stats.perception || 13;
-          }
-        }
+      // Populate Characters Preview List
+      const charsList = parsed.characters || (parsed.character ? [parsed.character] : []);
+      renderWbCharactersPreview(charsList);
 
-        if (Array.isArray(char.initial_inventory)) {
-          Elements.advModal.charInv.value = char.initial_inventory.join(', ');
-        }
-
-        if (Array.isArray(char.codex_notes) && char.codex_notes.length > 0) {
-          Elements.advModal.sec1Title.value = char.codex_notes[0].title || '';
-          Elements.advModal.sec1Content.value = char.codex_notes[0].content || '';
-          Elements.advModal.sec1Hint.value = char.codex_notes[0].hint || '';
-        }
-      }
-
-      Elements.wbModal.modal.style.display = 'none';
-      Elements.advModal.modal.style.display = 'flex';
-      showToast('AI สกัดข้อมูล Worldbook เรียบร้อย! ตรวจสอบและปรับแก้ได้ทันที', 'success');
+      // Switch to Step 2 Preview
+      switchWbStep('preview');
+      showToast('AI สกัดข้อมูล Worldbook เรียบร้อย! ตรวจสอบและแก้ไขก่อนกดยืนยัน', 'success');
     } catch (err) {
       showToast('การวิเคราะห์ Worldbook ล้มเหลว: ' + err.message, 'error');
     } finally {
       Elements.wbModal.analyzingBanner.style.display = 'none';
       Elements.wbModal.btnStartAnalyze.disabled = false;
+    }
+  });
+
+  // CONFIRM & SAVE WORLDBOOK TO DATABASE
+  Elements.wbModal.btnConfirmSave?.addEventListener('click', async () => {
+    const worldName = Elements.wbModal.previewWorldName.value.trim();
+    if (!worldName) {
+      showToast('กรุณาระบุชื่อโลก / จักรวาล', 'error');
+      return;
+    }
+
+    const characters = getWbEditedCharacters();
+    if (characters.length === 0) {
+      showToast('กรุณามีตัวละครอย่างน้อย 1 ตัวละคร', 'error');
+      return;
+    }
+
+    const worldPayload = {
+      name: worldName,
+      tag: Elements.wbModal.previewWorldTag.value.trim() || 'Fantasy',
+      description: Elements.wbModal.previewWorldDesc.value.trim(),
+      cover_image: Elements.wbModal.previewWorldCover.value.trim() || 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1200&auto=format&fit=crop',
+      lore_details: {
+        geography: Elements.wbModal.previewLoreGeo.value.trim(),
+        magic_rules: Elements.wbModal.previewLoreMagic.value.trim(),
+        factions: Elements.wbModal.previewLoreFactions.value.trim(),
+        custom_lore: Elements.wbModal.previewLoreCustom.value.trim()
+      }
+    };
+
+    const btn = Elements.wbModal.btnConfirmSave;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังบันทึกโลกและตัวละคร...';
+
+    try {
+      await API.createAdvancedWorld(worldPayload, characters);
+      Elements.wbModal.modal.style.display = 'none';
+      switchWbStep('upload');
+      showToast(`สร้างโลก "${worldName}" พร้อม ${characters.length} ตัวละครสำเร็จ!`, 'success');
+      await loadInitialData();
+    } catch (err) {
+      showToast('บันทึก Worldbook ไม่สำเร็จ: ' + err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa-solid fa-circle-check"></i> ✅ ยืนยันการสร้าง Worldbook ลงในเกม';
     }
   });
 

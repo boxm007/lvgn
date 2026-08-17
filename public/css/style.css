@@ -1857,10 +1857,158 @@ a {
   100% { transform: rotate(20deg) scale(1.06); }
 }
 
-@keyframes diceSlam {
-  0% { transform: scale(1.5) rotate(-20deg); }
-  50% { transform: scale(0.9) rotate(8deg); }
-  100% { transform: scale(1) rotate(0deg); }
+/* ==========================================================================
+   WORLDBOOK AI PREVIEW & DRAFT EDITOR STYLES
+   ========================================================================== */
+.preview-banner-alert {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  font-size: 13.5px;
+  color: #fde68a;
+}
+
+.preview-banner-alert i {
+  color: var(--accent-amber);
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.preview-section-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+}
+
+.preview-section-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.preview-section-title i {
+  color: var(--accent-amber);
+}
+
+.chars-preview-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.char-preview-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  transition: border-color var(--trans-fast);
+}
+
+.char-preview-card:hover {
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+.char-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid var(--border-subtle);
+  cursor: pointer;
+}
+
+.char-preview-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.char-preview-avatar-thumb {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--border-card);
+}
+
+.char-preview-title {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text-main);
+}
+
+.char-preview-role-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  background: rgba(59, 130, 246, 0.15);
+  color: #93c5fd;
+  border-radius: var(--radius-full);
+}
+
+.char-preview-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.char-preview-body {
+  padding: 14px;
+}
+
+.char-preview-body.collapsed {
+  display: none;
+}
+
+.stats-compact-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  margin-top: 6px;
+}
+
+@media (max-width: 600px) {
+  .stats-compact-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.stat-compact-box {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+  text-align: center;
+}
+
+.stat-compact-box span {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.stat-compact-box input {
+  width: 100%;
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  color: var(--text-main);
+  text-align: center;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 2px;
 }
 
 /* ==========================================================================

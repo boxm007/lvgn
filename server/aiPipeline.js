@@ -519,7 +519,26 @@ async function analyzeWorldbookContent(rawContent) {
     max_tokens: 2500
   });
 
-  return cleanAndParseJSON(res);
+  const parsed = cleanAndParseJSON(res);
+  
+  if (!parsed.characters && parsed.character) {
+    parsed.characters = [parsed.character];
+  }
+  if (!Array.isArray(parsed.characters)) {
+    parsed.characters = [];
+  }
+
+  // Ensure world has lore_details
+  if (parsed.world && !parsed.world.lore_details && parsed.world.lore) {
+    parsed.world.lore_details = {
+      geography: parsed.world.lore.geography || '',
+      magic_rules: parsed.world.lore.magic_rules || parsed.world.lore.magic_tech_rules || '',
+      factions: parsed.world.lore.factions || parsed.world.lore.factions_politics || '',
+      custom_lore: parsed.world.lore.custom_lore || ''
+    };
+  }
+
+  return parsed;
 }
 
 /**

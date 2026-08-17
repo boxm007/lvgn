@@ -4,12 +4,10 @@ node_modules/
 # Local configuration
 .env
 
-# Dynamic save data and databases
-data/
+# Dynamic save data and private settings
 data/saves/
-data/worlds.json
-data/characters.json
 data/settings.json
+data/voyage_db.json
 
 # Local backups & artifacts
 _backups/

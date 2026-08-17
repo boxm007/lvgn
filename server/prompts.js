@@ -321,48 +321,83 @@ Return JSON:
 // 5. WORLDBOOK ANALYZER & PROLOGUE GENERATOR
 // ==========================================
 function getWorldbookAnalyzerPrompt(rawFileContent) {
-  return `You are the Worldbook Architect of Long Voyage (Master Prompt Sections 21-22).
-Analyze the provided raw lore/character card/world text and generate a rich, structured World Configuration and Character Profile ready for the engine.
+  return `You are the Master Worldbook Architect for Long Voyage (Master Prompt Sections 21-22).
+Analyze the provided lorebook/worldbook/document text in detail. Extract and structure a complete, rich World Configuration along with all key Character profiles into pure valid JSON.
 
-[RAW CONTENT]
-${rawFileContent}
+[RAW CONTENT TO ANALYZE]
+${rawFileContent.substring(0, 32000)}
+
+[EXTRACTION RULES]
+1. WORLD CONFIGURATION:
+   - Extract the core world name, genre tag (e.g. Hero Academy, Dark Fantasy, Cyberpunk, Sci-Fi), atmospheric description, geography, magic/technology/power rules (e.g. Will system), major factions/organizations, and custom canon lore.
+2. CHARACTERS EXTRACTION:
+   - Extract all distinct main/key characters mentioned in the document (up to 6 characters).
+   - For each character:
+     - Name, role/title, short_desc (1-2 sentences).
+     - Personality tags (3-5 traits).
+     - Full history and motivations.
+     - Base stats on 10-20 scale: strength, agility, intelligence, charisma, perception.
+     - Initial inventory (3-5 signature items).
+     - 2-3 Secret Codex notes with unlock hints.
+     - Opening Prologue: High-impact 2-3 paragraph Thai narrative prose introducing the character and setting the scene.
+3. Output MUST be 100% valid JSON with no conversational text or markdown codeblocks.
 
 Return pure JSON matching this exact structure:
 {
   "world": {
-    "name": "ชื่อโลก/จักรวาล",
-    "tag": "Dark Fantasy | Cyberpunk | Sci-Fi | Romance | Mystery | Slice of Life",
-    "description": "คำอธิบายโลกสั้นๆ 1-2 ย่อหน้า",
-    "lore": {
-      "geography": "ภูมิศาสตร์และสถานที่สำคัญ",
-      "magic_tech_rules": "กฎของเวทมนตร์หรือเทคโนโลยี",
-      "factions_politics": "ฝ่าย องค์กร และการเมือง"
+    "name": "ชื่อโลก / สถาบัน / จักรวาล",
+    "tag": "Hero Academy | Action / Drama | Fantasy",
+    "description": "คำอธิบายภาพรวมของโลกและธีมหลัก 1-2 ย่อหน้า",
+    "cover_image": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1200&auto=format&fit=crop",
+    "lore_details": {
+      "geography": "สถานที่สำคัญ วิทยาเขต เมือง และพื้นที่รอบข้าง",
+      "magic_rules": "กฎของพลังพิเศษ เวทมนตร์ เทคโนโลยี หรือระบบพลัง (เช่น ระบบ Will)",
+      "factions": "ฝ่าย สมาคม สภานักเรียน ชมรม หรือองค์กรผู้ร้าย",
+      "custom_lore": "แก่นเรื่อง กฎ Canon ประเพณี และเกณฑ์การประเมิน"
     }
   },
-  "character": {
-    "name": "ชื่อตัวละคร",
-    "role": "บทบาทหรืออาชีพ",
-    "description": "บุคลิกภาพ รูปลักษณ์ และลักษณะเฉพาะ",
-    "personality_tags": ["สุขุม", "มีปมหลัง", "รอบคอบ"],
-    "history": "ประวัติความเป็นมาและแรงจูงใจ",
-    "base_stats": {
-      "strength": 12,
-      "agility": 14,
-      "intelligence": 15,
-      "charisma": 10,
-      "perception": 13
-    },
-    "initial_inventory": ["ดาบสั้น", "บันทึกลับ", "ผ้าคลุมกันหนาว"],
-    "secret_notes": [
-      {
-        "id": "secret_1",
-        "title": "ความลับที่ซ่อนอยู่",
-        "content": "เนื้อหาความลับ",
-        "unlock_hint": "เงื่อนไขเมื่อความสัมพันธ์ถึงระดับหนึ่ง หรือค้นพบเบาะแส"
-      }
-    ],
-    "prologue": "บทนำเปิดฉากวรรณกรรมภาษาไทยสุดเข้มข้น (2-3 ย่อหน้า) บรรยายบรรยากาศและสถานการณ์แรกพบระหว่างตัวละครนี้กับผู้เล่นอย่างน่าติดตาม"
-  }
+  "characters": [
+    {
+      "name": "ชื่อตัวละคร (เช่น เรน อากิยามะ / Ren Akiyama)",
+      "role": "บทบาท (เช่น นักเรียนทุนสายวิทย์ / ผู้ใช้ Will สายลม)",
+      "short_desc": "คำอธิบายตัวละครสั้นๆ 1-2 ประโยค",
+      "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=400&auto=format&fit=crop",
+      "personality_tags": ["ฉลาดรอบคอบ", "คิดมาก", "จิตใจดี", "มุ่งมั่น"],
+      "static_profile": {
+        "history": "ประวัติความเป็นมา แรงผลักดัน ปมในอดีต และเป้าหมายชีวิต",
+        "base_stats": {
+          "strength": 8,
+          "agility": 9,
+          "intelligence": 18,
+          "charisma": 12,
+          "perception": 16
+        }
+      },
+      "dynamic_state": {
+        "relationship_value": 0,
+        "relationship_status": "เป็นกลาง",
+        "current_emotion": "ปกติ"
+      },
+      "initial_inventory": ["สมุดจดสูตรคำนวณแรงดันอากาศ", "กระเป๋านักเรียน", "ผ้าเช็ดหน้าของแม่"],
+      "codex_notes": [
+        {
+          "id": "secret_1",
+          "title": "เป้าหมายที่แท้จริง",
+          "content": "ความฝันที่อยากแข็งแกร่งขึ้นเพื่อปกป้องแม่ของตัวเอง",
+          "unlock_hint": "เมื่อพูดคุยเปิดใจเรื่องครอบครัว",
+          "unlocked": false
+        },
+        {
+          "id": "secret_2",
+          "title": "ชาติกำเนิดและสายเลือด",
+          "content": "เบาะแสปริศนาเกี่ยวกับพ่อที่หายไปและตระกูลวีรชนสายลม",
+          "unlock_hint": "เมื่อค้นพบเบาะแสในภารกิจหรือปลดล็อก Will ขั้นสูง",
+          "unlocked": false
+        }
+      ],
+      "opening_prologue": "บทนำเปิดฉากวรรณกรรมภาษาไทยสุดเข้มข้น 2-3 ย่อหน้า บรรยายบรรยากาศและสถานการณ์แรกพบระหว่างตัวละครนี้กับผู้เล่นอย่างน่าติดตาม"
+    }
+  ]
 }`;
 }
 
