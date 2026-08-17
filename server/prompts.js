@@ -58,12 +58,13 @@ function getReasoningPrompt(turnContext) {
     fateResult,
     activeCharacter,
     worldContext,
+    worldRoster,
     relevantDetails,
     knownDiscoveredNpcs
   } = turnContext;
 
   return `You are the Mechanical GM / Referee of the Long Voyage system (Master Prompt Sections 8, 15, 16, 17, 18, 30, 31, 35, 36).
-Your job is to determine the authoritative mechanical outcome of the player's action based on the Fate Roll D20 result and world causality.
+Your job is to determine the authoritative mechanical outcome of the player's action based on the Fate Roll D20 result, world causality, and multi-character relationships.
 
 [RULES OF MECHANICAL REFEREE]
 1. FATE RESULT IS AUTHORITATIVE (Section 15 & 16):
@@ -77,18 +78,20 @@ Your job is to determine the authoritative mechanical outcome of the player's ac
    - Exceptional Success (19): Outstanding execution beyond expectation.
    - Critical Success (20): Flawless success with extraordinary narrative reward.
 2. CAUSALITY & COSTS (Section 8, 35, 36): Every action has realistic consequences. Success must feel earned.
-3. GRADUAL RELATIONSHIP EVOLUTION (Section 5 & 6): Relationship delta between -5 and +5 per turn. No instant 180-degree personality shifts.
-4. DISCOVERED NPCS: If a new character is introduced in the scene, output their details under "discovered_npc" to prompt the player to remember them into Worldbook.
-5. NO PROSE: Output pure JSON for the system to process.
+3. MULTI-CHARACTER RELATIONSHIPS (Section 5 & 6): 
+   - Identify which NPC in the scene was interacted with or affected.
+   - Adjust their relationship delta (-5 to +5) and new emotion.
+   - If interaction reveals a character's secret note condition, mark secret_notes_unlocked.
+4. DYNAMIC NPC DISCOVERY: 
+   - If the player encounters or introduces a new character not in the World Roster, generate a complete "discovered_npc" object with name, role, brief_desc, personality_tags, base_stats, initial_relationship, and secret_notes.
+5. Output MUST be pure JSON with NO markdown formatting.
 
 [SCENE CONTEXT]
 - World: ${worldContext.name} (${worldContext.tag})
-- Active Character: ${activeCharacter.name}
-- Personality: ${JSON.stringify(activeCharacter.personality_tags || [])}
-- Relationship Value: ${activeCharacter.dynamic_state?.relationship_value || 0} (${activeCharacter.dynamic_state?.relationship_status || 'เป็นกลาง'})
-- Current Emotion: ${activeCharacter.dynamic_state?.current_emotion || 'ปกติ'}
+- Player Protagonist: ${activeCharacter.name} (${JSON.stringify(activeCharacter.personality_tags || [])})
+- World Known NPCs & Relationships: ${JSON.stringify(worldRoster || [])}
+- Remembered Discovered NPCs: ${JSON.stringify(knownDiscoveredNpcs || [])}
 - Relevant Layer 2 Lore: ${JSON.stringify(relevantDetails || {})}
-- Known Remembered NPCs: ${JSON.stringify(knownDiscoveredNpcs || [])}
 
 [PLAYER ACTION & DETERMINISTIC FATE ROLL]
 - Action Type: [${playerInput.type}] "${playerInput.text}"
@@ -100,13 +103,13 @@ Return pure JSON matching this exact structure:
   "outcome_summary": "1-2 factual sentences summarizing the mechanical outcome",
   "state_changes": {
     "relationship_deltas": [
-      { "character_id": "${activeCharacter.id}", "delta": 1, "reason": "reason" }
+      { "character_name": "ชื่อ NPC ที่มีปฏิสัมพันธ์", "delta": 1, "reason": "reason in Thai" }
     ],
     "inventory_changes": [
       { "item_id": "item_name", "action": "add | remove | modify", "quantity": 1 }
     ],
     "emotion_updates": [
-      { "character_id": "${activeCharacter.id}", "new_emotion": "nuanced emotion in Thai" }
+      { "character_name": "ชื่อ NPC", "new_emotion": "nuanced emotion in Thai" }
     ],
     "secret_notes_unlocked": [],
     "new_flags": []
@@ -147,7 +150,7 @@ function getStorytellerSystemPrompt(stylePreset = {}) {
   const pov = stylePreset.pronoun_pov || 'บุคคลที่ 2 (คุณ) สำหรับผู้เล่น และบุคคลที่ 3 สำหรับตัวละครอื่น';
 
   return `You are the master AI Storyteller for Long Voyage (Master Prompt Sections 0 through 44).
-Your primary purpose is to create high-quality, novel-like narrative prose in elegant Thai that reacts naturally to player actions while preserving continuity, character consistency, world rules, and emotional depth.
+Your primary purpose is to immerse the player into a living, responsive world as their Protagonist, writing high-quality novel-like narrative prose in elegant Thai that reacts naturally to player actions while preserving continuity, character consistency, world canon rules, and emotional depth.
 
 ===============================================================================
 กฎเหล็กบังคับเริ่มต้นทุกข้อความ — MANDATORY SCENE STATUS HEADER (Sections 1, 7, 39)
@@ -224,6 +227,7 @@ function getStorytellerUserPrompt(turnData) {
   const {
     world,
     character,
+    worldRoster,
     playerInput,
     fateResult,
     consequence,
@@ -237,7 +241,7 @@ function getStorytellerUserPrompt(turnData) {
   if (recentHistory && recentHistory.length > 0) {
     historyText = recentHistory.map(h => {
       if (h.role === 'user') return `ผู้เล่น [${h.type || 'Input'}]: ${h.content}`;
-      return `${character.name} [Narrator]: ${h.content}`;
+      return `Storyteller / NPCs: ${h.content}`;
     }).join('\n\n');
   }
 
@@ -249,20 +253,23 @@ function getStorytellerUserPrompt(turnData) {
 [MANDATORY SCENE HEADER FOR THIS TURN]
 📍 [ วันที่ ${currentScene.day} | เวลา ${currentScene.time} น. | สถานที่: ${currentScene.location} ]
 
-[WORLD CONFIGURATION]
-World: ${world.name} | Setting/Tag: ${world.tag || 'Adventure'}
-Canon Lore: ${world.lore?.geography || ''} | ${world.lore?.magic_tech_rules || ''}
+[WORLD CANON & SETTING]
+World: ${world.name} | Setting/Tag: ${world.tag || 'Hero Academy'}
+Lore Details: ${JSON.stringify(world.lore_details || {})}
 
-[CURRENT GAME STATE & CHARACTER]
-Character: ${character.name}
+[PLAYER PROTAGONIST]
+You are narrating for: ${character.name}
+Role/Profile: ${character.short_desc || ''}
+Background & Drive: ${character.static_profile?.history || ''}
 Base Stats: ${JSON.stringify(character.static_profile?.base_stats || {})}
-Relationship: ${character.dynamic_state?.relationship_value || 0} (${character.dynamic_state?.relationship_status || 'เป็นกลาง'})
-Current Emotion: ${character.dynamic_state?.current_emotion || 'ปกติ'}
+
+[WORLD ROSTER & KNOWN CHARACTERS IN THIS WORLD]
+${JSON.stringify(worldRoster || [])}
 
 [RELEVANT MEMORIES & ROLLING SUMMARY]
 ${rollingSummary ? `ความทรงจำที่ผ่านมา: ${rollingSummary}` : 'เพิ่งเริ่มต้นการเดินทาง'}
 
-[RECENT CONVERSATION]
+[RECENT CONVERSATION & EVENTS]
 ${historyText || 'ไม่มี (เพิ่งเริ่มเทิร์นแรก)'}
 
 [FATE RESULT — AUTHORITATIVE MECHANIC]
@@ -274,7 +281,7 @@ Tone Hint: ${directives.tone_hint || 'drama'}
 
 [LATEST PLAYER ACTION]
 Player Type: [${playerInput.type}]
-Player Message: "${playerInput.text}"
+Player Action/Dialogue: "${playerInput.text}"
 
 ${customInstructions ? `[คำสั่งเพิ่มเติมพิเศษสำหรับข้อความนี้]: ${customInstructions}\n` : ''}
 เริ่มบรรยายโดยขึ้นต้นบรรทัดแรกด้วย \`📍 [ วันที่ ${currentScene.day} | เวลา ${currentScene.time} น. | สถานที่: ${currentScene.location} ]\` แล้วตามด้วยวรรณกรรมภาษาไทยชั้นยอด:`;

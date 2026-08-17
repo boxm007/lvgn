@@ -1298,7 +1298,54 @@ a {
   gap: 18px;
 }
 
-/* CODEX DRAWER */
+/* CODEX & WORLD SOCIAL ROSTER DRAWER */
+.codex-tab-bar {
+  display: flex;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.4);
+  padding: 4px;
+  border-radius: var(--radius-md);
+  margin-bottom: 14px;
+  border: 1px solid var(--border-subtle);
+}
+
+.codex-tab-btn {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.codex-tab-btn.active {
+  background: var(--bg-elevated);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--border-card);
+}
+
+.codex-tab-btn.active i {
+  color: var(--accent-amber);
+}
+
+.codex-pane {
+  display: none;
+  animation: fadeIn 0.2s ease;
+}
+
+.codex-pane.active {
+  display: block;
+}
+
 .codex-profile-card {
   display: flex;
   gap: 16px;
@@ -1313,6 +1360,7 @@ a {
   height: 64px;
   border-radius: var(--radius-md);
   object-fit: cover;
+  border: 1px solid var(--border-card);
 }
 
 .codex-stats-grid {
@@ -1331,28 +1379,166 @@ a {
   font-size: 12.5px;
 }
 
+/* NPC SOCIAL CARDS (WORLD ROSTER) */
+.npcs-social-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.npc-social-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: border-color 0.2s ease;
+}
+
+.npc-social-card:hover {
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+.npc-social-header {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.npc-social-avatar {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--border-card);
+  flex-shrink: 0;
+}
+
+.npc-social-header-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.npc-social-name {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.npc-role-tag {
+  font-size: 11.5px;
+  color: var(--text-dim);
+  line-height: 1.3;
+}
+
+.npc-rel-container {
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.npc-rel-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+}
+
+.npc-rel-badge {
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+}
+
+.npc-rel-badge.positive {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.npc-rel-badge.neutral {
+  background: rgba(148, 163, 184, 0.15);
+  color: #cbd5e1;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.npc-rel-badge.negative {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.npc-emotion-chip {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.npc-rel-bar {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+  overflow: hidden;
+  position: relative;
+}
+
+.npc-rel-progress {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.npc-bio-text {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.npc-secrets-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
 .secret-note-card {
   background: rgba(0, 0, 0, 0.3);
   border: 1px dashed var(--border-card);
   border-radius: var(--radius-md);
-  padding: 14px;
+  padding: 10px 12px;
 }
 
 .secret-note-card.unlocked {
   border-style: solid;
-  border-color: var(--accent-amber);
-  background: rgba(245, 158, 11, 0.05);
+  border-color: rgba(245, 158, 11, 0.5);
+  background: rgba(245, 158, 11, 0.06);
 }
 
 .secret-title {
-  font-size: 13.5px;
+  font-size: 12.5px;
   font-weight: 600;
   color: var(--accent-amber);
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .secret-content {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--text-muted);
 }
 

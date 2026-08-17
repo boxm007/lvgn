@@ -250,12 +250,16 @@ async function executeTurnPipeline({ slotId, playerInput, customRoll = null }) {
   };
 
   try {
-    const knownNpcNames = (slot.discovered_npcs || []).map(n => n.name);
+    const knownNpcNames = [
+      ...(slot.roster || []).map(n => n.name),
+      ...(slot.discovered_npcs || []).map(n => n.name)
+    ];
     const reasoningPrompt = getReasoningPrompt({
       playerInput,
       fateResult,
       activeCharacter: { ...character, dynamic_state: slot.dynamic_state },
       worldContext: world,
+      worldRoster: slot.roster || [],
       relevantDetails: {
         inventory: extractedContext.relevant_inventory_items || [],
         secrets: extractedContext.potential_secret_flags || []
@@ -295,6 +299,7 @@ async function executeTurnPipeline({ slotId, playerInput, customRoll = null }) {
   const storytellerUserPrompt = getStorytellerUserPrompt({
     world,
     character: { ...character, dynamic_state: slot.dynamic_state },
+    worldRoster: slot.roster || [],
     playerInput,
     fateResult,
     consequence,
@@ -323,32 +328,61 @@ async function executeTurnPipeline({ slotId, playerInput, customRoll = null }) {
     finalNarration = sceneHeader + finalNarration;
   }
 
-  // Apply relationship deltas
-  const deltas = consequence.state_changes?.relationship_deltas || [];
-  let totalDelta = 0;
-  deltas.forEach(d => {
-    if (typeof d.delta === 'number') totalDelta += d.delta;
-  });
-  if (typeof consequence.relationship_delta === 'number') {
-    totalDelta = consequence.relationship_delta;
-  }
+  // Apply multi-character relationship deltas
+  if (!slot.roster) slot.roster = [];
+  if (!slot.discovered_npcs) slot.discovered_npcs = [];
 
-  const currentRel = slot.dynamic_state.relationship_value || 0;
-  slot.dynamic_state.relationship_value = Math.min(100, Math.max(-100, currentRel + totalDelta));
-  
-  if (slot.dynamic_state.relationship_value >= 40) slot.dynamic_state.relationship_status = 'ผูกพันลึกซึ้ง';
-  else if (slot.dynamic_state.relationship_value >= 20) slot.dynamic_state.relationship_status = 'สนิทสนม';
-  else if (slot.dynamic_state.relationship_value >= 5) slot.dynamic_state.relationship_status = 'เพื่อนร่วมทาง';
-  else if (slot.dynamic_state.relationship_value <= -30) slot.dynamic_state.relationship_status = 'ศัตรูคู่อาฆาต';
-  else if (slot.dynamic_state.relationship_value <= -10) slot.dynamic_state.relationship_status = 'ระแวง';
-  else slot.dynamic_state.relationship_status = 'เป็นกลาง';
+  const deltas = consequence.state_changes?.relationship_deltas || [];
+  deltas.forEach(d => {
+    const charName = (d.character_name || d.character_id || '').toLowerCase();
+    const targetNpc = slot.roster.find(n => n.name.toLowerCase().includes(charName) || (n.id && n.id.toLowerCase() === charName))
+      || slot.discovered_npcs.find(n => n.name.toLowerCase().includes(charName));
+
+    if (targetNpc && typeof d.delta === 'number') {
+      targetNpc.relationship_value = Math.min(100, Math.max(-100, (targetNpc.relationship_value || 0) + d.delta));
+      if (targetNpc.relationship_value >= 40) targetNpc.relationship_status = 'ผูกพันลึกซึ้ง';
+      else if (targetNpc.relationship_value >= 20) targetNpc.relationship_status = 'สนิทสนม';
+      else if (targetNpc.relationship_value >= 5) targetNpc.relationship_status = 'เพื่อนร่วมทาง';
+      else if (targetNpc.relationship_value <= -30) targetNpc.relationship_status = 'ศัตรูคู่อาฆาต';
+      else if (targetNpc.relationship_value <= -10) targetNpc.relationship_status = 'ระแวง';
+      else targetNpc.relationship_status = 'เป็นกลาง';
+    }
+  });
 
   // Apply emotion updates
   const emotionUpdates = consequence.state_changes?.emotion_updates || [];
-  if (emotionUpdates.length > 0 && emotionUpdates[0].new_emotion) {
-    slot.dynamic_state.current_emotion = emotionUpdates[0].new_emotion;
-  } else if (consequence.emotion_update) {
-    slot.dynamic_state.current_emotion = consequence.emotion_update;
+  emotionUpdates.forEach(u => {
+    const charName = (u.character_name || u.character_id || '').toLowerCase();
+    const targetNpc = slot.roster.find(n => n.name.toLowerCase().includes(charName))
+      || slot.discovered_npcs.find(n => n.name.toLowerCase().includes(charName));
+    if (targetNpc && u.new_emotion) {
+      targetNpc.current_emotion = u.new_emotion;
+    }
+  });
+
+  // Handle newly discovered NPC
+  if (consequence.discovered_npc && consequence.discovered_npc.name) {
+    const newNpcName = consequence.discovered_npc.name.trim();
+    const alreadyExists = slot.roster.some(n => n.name.toLowerCase() === newNpcName.toLowerCase()) ||
+                          slot.discovered_npcs.some(n => n.name.toLowerCase() === newNpcName.toLowerCase());
+    
+    if (!alreadyExists) {
+      const newNpcObj = {
+        id: 'npc_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+        name: newNpcName,
+        role: consequence.discovered_npc.role || 'ตัวละครใหม่ในโลก',
+        brief_desc: consequence.discovered_npc.brief_desc || '',
+        avatar: consequence.discovered_npc.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=300&auto=format&fit=crop',
+        personality_tags: consequence.discovered_npc.personality_tags || ['ลึกลับ'],
+        relationship_value: consequence.discovered_npc.initial_relationship || 0,
+        relationship_status: 'เพิ่งพบเจอ',
+        current_emotion: 'ปกติ',
+        base_stats: consequence.discovered_npc.base_stats || { strength: 10, agility: 10, intelligence: 10, charisma: 10, perception: 10 },
+        codex_notes: consequence.discovered_npc.secret_notes || [],
+        discovered_at: new Date().toISOString()
+      };
+      slot.discovered_npcs.push(newNpcObj);
+    }
   }
 
   // Apply inventory changes
@@ -368,14 +402,21 @@ async function executeTurnPipeline({ slotId, playerInput, customRoll = null }) {
     slot.inventory = slot.inventory.filter(i => !consequence.inventory_remove.includes(i));
   }
 
-  // Apply secret notes unlock
+  // Apply secret notes unlock across protagonist and roster
   const unlockedSecrets = consequence.state_changes?.secret_notes_unlocked || [];
   if (consequence.unlock_secret_id) unlockedSecrets.push(consequence.unlock_secret_id);
 
-  if (unlockedSecrets.length > 0 && Array.isArray(slot.codex_notes)) {
-    slot.codex_notes.forEach(note => {
-      if (unlockedSecrets.includes(note.id)) {
-        note.unlocked = true;
+  if (unlockedSecrets.length > 0) {
+    if (Array.isArray(slot.codex_notes)) {
+      slot.codex_notes.forEach(note => {
+        if (unlockedSecrets.includes(note.id)) note.unlocked = true;
+      });
+    }
+    slot.roster.forEach(npc => {
+      if (Array.isArray(npc.codex_notes)) {
+        npc.codex_notes.forEach(note => {
+          if (unlockedSecrets.includes(note.id)) note.unlocked = true;
+        });
       }
     });
   }
@@ -438,6 +479,7 @@ async function executeTurnPipeline({ slotId, playerInput, customRoll = null }) {
     inventory: slot.inventory,
     codex_notes: slot.codex_notes,
     discovered_npcs: slot.discovered_npcs,
+    roster: slot.roster || [],
     discovered_npc: consequence.discovered_npc || null,
     fateResult,
     consequence

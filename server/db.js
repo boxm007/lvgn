@@ -182,12 +182,33 @@ class Database {
       const loadedState = state.dynamic_state || { relationship_value: 0, relationship_status: 'เป็นกลาง', current_emotion: 'ปกติ' };
       if (!loadedState.scene) loadedState.scene = defaultScene;
 
+      // Auto-populate roster if missing
+      let roster = codex.roster || [];
+      if (roster.length === 0 && metadata.world_id) {
+        const worldChars = this.getCharacters(metadata.world_id).filter(c => c.id !== metadata.character_id);
+        roster = worldChars.map(c => ({
+          id: c.id,
+          name: c.name,
+          role: c.role || c.short_desc || '',
+          avatar: c.avatar,
+          short_desc: c.short_desc,
+          relationship_value: c.dynamic_state?.relationship_value || 0,
+          relationship_status: c.dynamic_state?.relationship_status || 'เป็นกลาง',
+          current_emotion: c.dynamic_state?.current_emotion || 'ปกติ',
+          personality_tags: c.personality_tags || [],
+          base_stats: c.static_profile?.base_stats || {},
+          codex_notes: JSON.parse(JSON.stringify(c.codex_notes || [])),
+          is_canon: true
+        }));
+      }
+
       return {
         ...metadata,
         dynamic_state: loadedState,
         inventory: inventory,
         codex_notes: codex.notes || [],
         discovered_npcs: codex.discovered_npcs || [],
+        roster: roster,
         style_preset: preset,
         rolling_summary: state.rolling_summary || '',
         history: history,
@@ -240,9 +261,28 @@ class Database {
     };
 
     const inventory = JSON.parse(JSON.stringify(character.initial_inventory || []));
+
+    // Populate initial World Roster (all other characters in this world)
+    const worldChars = this.getCharacters(worldId).filter(c => c.id !== characterId);
+    const initialRoster = worldChars.map(c => ({
+      id: c.id,
+      name: c.name,
+      role: c.role || c.short_desc || '',
+      avatar: c.avatar,
+      short_desc: c.short_desc,
+      relationship_value: c.dynamic_state?.relationship_value || 0,
+      relationship_status: c.dynamic_state?.relationship_status || 'เป็นกลาง',
+      current_emotion: c.dynamic_state?.current_emotion || 'ปกติ',
+      personality_tags: c.personality_tags || [],
+      base_stats: c.static_profile?.base_stats || {},
+      codex_notes: JSON.parse(JSON.stringify(c.codex_notes || [])),
+      is_canon: true
+    }));
+
     const codex = {
       notes: JSON.parse(JSON.stringify(character.codex_notes || [])),
-      discovered_npcs: []
+      discovered_npcs: [],
+      roster: initialRoster
     };
 
     const preset = {
@@ -290,7 +330,8 @@ class Database {
 
     const codex = {
       notes: merged.codex_notes || [],
-      discovered_npcs: merged.discovered_npcs || []
+      discovered_npcs: merged.discovered_npcs || [],
+      roster: merged.roster || []
     };
 
     fs.writeFileSync(path.join(slotFolder, 'metadata.json'), JSON.stringify(metadata, null, 2), 'utf8');

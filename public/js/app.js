@@ -538,19 +538,21 @@ function updateHeaderUI() {
   Elements.header.charName.innerText = State.activeCharacter.name;
   
   const dynamicState = State.activeSlot.dynamic_state || {};
-  const emotion = dynamicState.current_emotion || 'ปกติ';
-  const relVal = dynamicState.relationship_value || 0;
-  const relStatus = dynamicState.relationship_status || 'เป็นกลาง';
+  const scene = dynamicState.scene || { day: 1, time: "08:30", location: "โรงเรียนวีรชน" };
+  const totalNpcs = (State.activeSlot.roster?.length || 0) + (State.activeSlot.discovered_npcs?.length || 0);
 
-  Elements.header.emotionPill.innerText = `😊 ${emotion}`;
-  Elements.header.relStatus.innerText = relStatus;
-  Elements.header.relScore.innerText = (relVal >= 0 ? '+' : '') + relVal;
+  Elements.header.emotionPill.innerText = `👑 คุณ (${State.activeCharacter.name.split(' ')[0]})`;
+  Elements.header.relStatus.innerText = `📍 วันที่ ${scene.day} | ${scene.location}`;
+  Elements.header.relScore.innerText = `👥 ${totalNpcs} NPCs`;
 
-  const percentage = Math.min(100, Math.max(5, ((relVal + 50) / 100) * 100));
-  Elements.header.relBar.style.width = percentage + '%';
+  const codexBtn = document.getElementById('btn-open-codex');
+  if (codexBtn) {
+    const textSpan = codexBtn.querySelector('.btn-text-responsive');
+    if (textSpan) textSpan.innerText = `Codex (${totalNpcs})`;
+  }
 
-  Elements.story.welcomeTitle.innerText = `การเดินทางร่วมกับ ${State.activeCharacter.name}`;
-  Elements.story.welcomeDesc.innerText = State.activeCharacter.short_desc || 'พร้อมสำหรับการผจญภัยและการพูดคุย';
+  Elements.story.welcomeTitle.innerText = `การผจญภัยของ ${State.activeCharacter.name}`;
+  Elements.story.welcomeDesc.innerText = State.activeCharacter.short_desc || 'พร้อมสำหรับการผจญภัยในโลกนี้';
 }
 
 function renderChatMessages(history) {
@@ -839,6 +841,7 @@ async function handleSendTurn() {
     State.activeSlot.inventory = res.inventory;
     State.activeSlot.codex_notes = res.codex_notes;
     State.activeSlot.discovered_npcs = res.discovered_npcs;
+    if (res.roster) State.activeSlot.roster = res.roster;
     State.activeSlot.history.push(res.userTurn, res.aiTurn);
 
     Elements.story.typingIndicator.style.display = 'none';
@@ -910,28 +913,35 @@ async function handleUndo() {
 // ============================================================================
 // DRAWERS & MODALS RENDERING
 // ============================================================================
+let activeCodexTab = 'social'; // 'protagonist' | 'social' | 'world'
+
 function renderCodexDrawer() {
   if (!State.activeSlot || !State.activeCharacter) return;
 
   const character = State.activeCharacter;
+  const world = State.activeWorld || {};
   const slot = State.activeSlot;
   const stats = character.static_profile?.base_stats || {};
 
-  let secretsHtml = '';
+  const roster = slot.roster || [];
+  const discoveredNpcs = slot.discovered_npcs || [];
+  const allNpcs = [...roster, ...discoveredNpcs];
+
+  // 1. PROTAGONIST SECRETS HTML
+  let protagSecretsHtml = '';
   const codexNotes = slot.codex_notes || [];
-  
   codexNotes.forEach(note => {
     if (note.unlocked) {
-      secretsHtml += `
+      protagSecretsHtml += `
         <div class="secret-note-card unlocked">
           <div class="secret-title"><i class="fa-solid fa-unlock-keyhole"></i> ${escapeHtml(note.title)}</div>
           <div class="secret-content">${escapeHtml(note.content)}</div>
         </div>
       `;
     } else {
-      secretsHtml += `
+      protagSecretsHtml += `
         <div class="secret-note-card">
-          <div class="secret-title"><i class="fa-solid fa-lock"></i> ??? (ความลับยังไม่เปิดเผย)</div>
+          <div class="secret-title"><i class="fa-solid fa-lock"></i> ??? (${escapeHtml(note.title || 'ความลับยังไม่เปิดเผย')})</div>
           <div class="secret-content" style="color: var(--text-dim); font-style: italic;">
             คำใบ้: ${escapeHtml(note.hint || 'พูดคุยและสร้างความผูกพัน')}
           </div>
@@ -940,65 +950,199 @@ function renderCodexDrawer() {
     }
   });
 
-  // Discovered NPCs Section
-  let npcsHtml = '';
-  const npcs = slot.discovered_npcs || [];
-  npcs.forEach(n => {
-    npcsHtml += `
-      <div class="discovered-npc-chip">
-        <div>
-          <strong>${escapeHtml(n.name)}</strong>
-          <span style="color: var(--text-dim); font-size: 11.5px; margin-left: 6px;">(${escapeHtml(n.role)})</span>
-          <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">${escapeHtml(n.brief_desc)}</p>
+  // 2. WORLD SOCIAL ROSTER HTML
+  let npcsSocialHtml = '';
+  if (allNpcs.length === 0) {
+    npcsSocialHtml = `<div style="text-align: center; padding: 24px; color: var(--text-dim); font-size: 13px;">ยังไม่พบตัวละครอื่นในเซฟนี้</div>`;
+  } else {
+    allNpcs.forEach(npc => {
+      const relVal = npc.relationship_value || 0;
+      let badgeClass = 'neutral';
+      if (relVal > 0) badgeClass = 'positive';
+      if (relVal < 0) badgeClass = 'negative';
+
+      const relPercent = Math.min(100, Math.max(0, ((relVal + 100) / 200) * 100));
+      const relColor = relVal > 0 ? 'var(--status-good)' : relVal < 0 ? 'var(--status-bad)' : 'var(--text-dim)';
+
+      // NPC Secret Notes HTML
+      let npcSecretsHtml = '';
+      if (Array.isArray(npc.codex_notes) && npc.codex_notes.length > 0) {
+        npc.codex_notes.forEach(sn => {
+          if (sn.unlocked) {
+            npcSecretsHtml += `
+              <div class="secret-note-card unlocked">
+                <div class="secret-title"><i class="fa-solid fa-unlock-keyhole"></i> ${escapeHtml(sn.title)}</div>
+                <div class="secret-content">${escapeHtml(sn.content)}</div>
+              </div>
+            `;
+          } else {
+            npcSecretsHtml += `
+              <div class="secret-note-card">
+                <div class="secret-title"><i class="fa-solid fa-lock"></i> 🔒 ${escapeHtml(sn.title || 'ความลับที่ซ่อนอยู่')}</div>
+                <div class="secret-content" style="color: var(--text-dim); font-style: italic;">
+                  คำใบ้: ${escapeHtml(sn.unlock_hint || sn.hint || 'ร่วมเดินทางและพูดคุยเปิดใจ')}
+                </div>
+              </div>
+            `;
+          }
+        });
+      }
+
+      npcsSocialHtml += `
+        <div class="npc-social-card">
+          <div class="npc-social-header">
+            <img src="${escapeHtml(npc.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop')}" alt="${escapeHtml(npc.name)}" class="npc-social-avatar" onerror="this.src='https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop'">
+            <div class="npc-social-header-info">
+              <div class="npc-social-name">
+                <span>${escapeHtml(npc.name)}</span>
+                <span class="npc-rel-badge ${badgeClass}">${relVal >= 0 ? '+' : ''}${relVal}</span>
+              </div>
+              <span class="npc-role-tag">${escapeHtml(npc.role || npc.short_desc || 'ตัวละครในโลก')}</span>
+            </div>
+          </div>
+
+          <div class="npc-rel-container">
+            <div class="npc-rel-header-row">
+              <span>สถานะ: <strong style="color: ${relColor};">${escapeHtml(npc.relationship_status || 'เป็นกลาง')}</strong></span>
+              <span class="npc-emotion-chip"><i class="fa-solid fa-comment-dots"></i> ${escapeHtml(npc.current_emotion || 'ปกติ')}</span>
+            </div>
+            <div class="npc-rel-bar">
+              <div class="npc-rel-progress" style="width: ${relPercent}%; background: ${relColor};"></div>
+            </div>
+          </div>
+
+          ${npc.short_desc ? `<p class="npc-bio-text">${escapeHtml(npc.short_desc)}</p>` : ''}
+
+          ${npcSecretsHtml ? `
+            <div class="npc-secrets-box">
+              <span style="font-size: 11.5px; font-weight: 700; color: var(--accent-amber);"><i class="fa-solid fa-key"></i> บันทึกลับและความทรงจำ:</span>
+              ${npcSecretsHtml}
+            </div>
+          ` : ''}
         </div>
-        <span style="font-size: 11px; color: var(--accent-rose);"><i class="fa-solid fa-heart"></i> ${n.relationship_value || 0}</span>
+      `;
+    });
+  }
+
+  // 3. TAB 1: PROTAGONIST HTML
+  const tabProtagonistHtml = `
+    <div id="codex-pane-protag" class="codex-pane ${activeCodexTab === 'protagonist' ? 'active' : ''}">
+      <div class="codex-profile-card">
+        <img class="codex-avatar" src="${character.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop'}">
+        <div>
+          <span style="font-size: 11px; background: rgba(245, 158, 11, 0.2); color: #fde68a; padding: 2px 8px; border-radius: var(--radius-full); font-weight: 600;">👑 ตัวละครของคุณ (Protagonist)</span>
+          <h3 style="font-size: 16px; font-weight: 700; margin-top: 4px;">${escapeHtml(character.name)}</h3>
+          <p style="font-size: 12px; color: var(--text-muted);">${escapeHtml(character.short_desc || '')}</p>
+        </div>
       </div>
-    `;
-  });
 
-  Elements.drawers.codexContent.innerHTML = `
-    <div class="codex-profile-card">
-      <img class="codex-avatar" src="${character.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop'}">
-      <div>
-        <h3 style="font-size: 16px; font-weight: 700;">${character.name}</h3>
-        <p style="font-size: 12px; color: var(--text-muted);">${character.short_desc || ''}</p>
+      <div style="margin-top: 14px;">
+        <h4 style="font-size: 13px; font-weight: 600; margin-bottom: 8px; color: var(--text-dim);">ประวัติ ความมุ่งมั่น และเป้าหมาย</h4>
+        <p style="font-size: 13px; line-height: 1.6; color: var(--text-muted); background: var(--bg-card); padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--border-card);">
+          ${escapeHtml(character.static_profile?.history || 'ไม่มีข้อมูลเพิ่มเติม')}
+        </p>
       </div>
-    </div>
 
-    <div>
-      <h4 style="font-size: 13px; font-weight: 600; margin-bottom: 8px; color: var(--text-dim);">ประวัติและภูมิหลัง</h4>
-      <p style="font-size: 13px; line-height: 1.6; color: var(--text-muted); background: var(--bg-card); padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--border-card);">
-        ${character.static_profile?.history || 'ไม่มีข้อมูลเพิ่มเติม'}
-      </p>
-    </div>
-
-    <div>
-      <h4 style="font-size: 13px; font-weight: 600; margin-bottom: 8px; color: var(--text-dim);">ค่าพลังพื้นฐาน (Base Stats Modifier)</h4>
-      <div class="codex-stats-grid">
-        <div class="stat-box"><span>💪 พละกำลัง (STR)</span><strong>${stats.strength || 10}</strong></div>
-        <div class="stat-box"><span>🏃 ความว่องไว (AGI)</span><strong>${stats.agility || 10}</strong></div>
-        <div class="stat-box"><span>🧠 สติปัญญา (INT)</span><strong>${stats.intelligence || 10}</strong></div>
-        <div class="stat-box"><span>✨ เสน่ห์/เจรจา (CHA)</span><strong>${stats.charisma || 10}</strong></div>
-        <div class="stat-box" style="grid-column: 1/-1;"><span>👁️ สัมผัสพิเศษ (PER)</span><strong>${stats.perception || 10}</strong></div>
+      <div style="margin-top: 14px;">
+        <h4 style="font-size: 13px; font-weight: 600; margin-bottom: 8px; color: var(--text-dim);">ค่าพลังพื้นฐาน (Base Stats สำหรับทอยเต๋า D20)</h4>
+        <div class="codex-stats-grid">
+          <div class="stat-box"><span>💪 พละกำลัง (STR)</span><strong>${stats.strength || 10}</strong></div>
+          <div class="stat-box"><span>🏃 ความว่องไว (AGI)</span><strong>${stats.agility || 10}</strong></div>
+          <div class="stat-box"><span>🧠 สติปัญญา (INT)</span><strong>${stats.intelligence || 10}</strong></div>
+          <div class="stat-box"><span>✨ เสน่ห์/เจรจา (CHA)</span><strong>${stats.charisma || 10}</strong></div>
+          <div class="stat-box" style="grid-column: 1/-1;"><span>👁️ สัมผัสพิเศษ (PER)</span><strong>${stats.perception || 10}</strong></div>
+        </div>
       </div>
-    </div>
 
-    ${npcs.length > 0 ? `
-    <div>
-      <h4 style="font-size: 13px; font-weight: 600; margin-bottom: 8px; color: var(--primary);"><i class="fa-solid fa-users"></i> ตัวละครที่จดจำในโลกนี้ (${npcs.length})</h4>
-      <div style="display: flex; flex-direction: column; gap: 6px;">
-        ${npcsHtml}
-      </div>
-    </div>
-    ` : ''}
-
-    <div>
-      <h4 style="font-size: 13px; font-weight: 600; margin-bottom: 8px; color: var(--accent-amber);">บันทึกลับและความทรงจำ (Secret Notes)</h4>
-      <div style="display: flex; flex-direction: column; gap: 8px;">
-        ${secretsHtml || '<span style="font-size: 12px; color: var(--text-dim);">ไม่มีบันทึกลับ</span>'}
+      <div style="margin-top: 14px;">
+        <h4 style="font-size: 13px; font-weight: 600; margin-bottom: 8px; color: var(--accent-amber);"><i class="fa-solid fa-lock"></i> บันทึกลับส่วนตัว (Secret Notes)</h4>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          ${protagSecretsHtml || '<span style="font-size: 12px; color: var(--text-dim);">ไม่มีบันทึกลับ</span>'}
+        </div>
       </div>
     </div>
   `;
+
+  // 4. TAB 2: SOCIAL ROSTER HTML
+  const tabSocialHtml = `
+    <div id="codex-pane-social" class="codex-pane ${activeCodexTab === 'social' ? 'active' : ''}">
+      <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">
+        ความสัมพันธ์ อารมณ์ และบันทึกลับของตัวละครทุกคนที่คุณพบเจอในโลกนี้ (${allNpcs.length} คน)
+      </p>
+      <div class="npcs-social-list">
+        ${npcsSocialHtml}
+      </div>
+    </div>
+  `;
+
+  // 5. TAB 3: WORLD LORE HTML
+  const loreDetails = world.lore_details || {};
+  const tabWorldHtml = `
+    <div id="codex-pane-world" class="codex-pane ${activeCodexTab === 'world' ? 'active' : ''}">
+      <div style="background: var(--bg-card); border: 1px solid var(--border-card); border-radius: var(--radius-md); padding: 14px; margin-bottom: 12px;">
+        <span style="font-size: 11px; color: var(--accent-amber); font-weight: 700;">${escapeHtml(world.tag || 'Hero Academy')}</span>
+        <h3 style="font-size: 16px; font-weight: 700; margin: 4px 0 8px 0;">${escapeHtml(world.name || '')}</h3>
+        <p style="font-size: 12.5px; line-height: 1.5; color: var(--text-muted);">${escapeHtml(world.description || '')}</p>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        ${loreDetails.geography ? `
+          <div style="background: var(--bg-card); border: 1px solid var(--border-card); border-radius: var(--radius-md); padding: 12px;">
+            <h4 style="font-size: 13px; font-weight: 700; color: var(--text-main); margin-bottom: 4px;"><i class="fa-solid fa-mountain-sun" style="color: #60a5fa;"></i> ภูมิศาสตร์ & สถานที่</h4>
+            <p style="font-size: 12px; line-height: 1.5; color: var(--text-muted);">${escapeHtml(loreDetails.geography)}</p>
+          </div>
+        ` : ''}
+
+        ${loreDetails.magic_rules ? `
+          <div style="background: var(--bg-card); border: 1px solid var(--border-card); border-radius: var(--radius-md); padding: 12px;">
+            <h4 style="font-size: 13px; font-weight: 700; color: var(--text-main); margin-bottom: 4px;"><i class="fa-solid fa-bolt" style="color: var(--accent-amber);"></i> ระบบเจตจำนง (Will) & กฎพลัง</h4>
+            <p style="font-size: 12px; line-height: 1.5; color: var(--text-muted);">${escapeHtml(loreDetails.magic_rules)}</p>
+          </div>
+        ` : ''}
+
+        ${loreDetails.factions ? `
+          <div style="background: var(--bg-card); border: 1px solid var(--border-card); border-radius: var(--radius-md); padding: 12px;">
+            <h4 style="font-size: 13px; font-weight: 700; color: var(--text-main); margin-bottom: 4px;"><i class="fa-solid fa-shield-halved" style="color: #f43f5e;"></i> ฝ่ายและองค์กร</h4>
+            <p style="font-size: 12px; line-height: 1.5; color: var(--text-muted);">${escapeHtml(loreDetails.factions)}</p>
+          </div>
+        ` : ''}
+
+        ${loreDetails.custom_lore ? `
+          <div style="background: var(--bg-card); border: 1px solid var(--border-card); border-radius: var(--radius-md); padding: 12px;">
+            <h4 style="font-size: 13px; font-weight: 700; color: var(--text-main); margin-bottom: 4px;"><i class="fa-solid fa-scroll" style="color: #34d399;"></i> กฎ Canon & ธรรมเนียม</h4>
+            <p style="font-size: 12px; line-height: 1.5; color: var(--text-muted);">${escapeHtml(loreDetails.custom_lore)}</p>
+          </div>
+        ` : ''}
+      </div>
+    </div>
+  `;
+
+  // Render entire Drawer Body with Tab Bar
+  Elements.drawers.codexContent.innerHTML = `
+    <div class="codex-tab-bar">
+      <button type="button" class="codex-tab-btn ${activeCodexTab === 'social' ? 'active' : ''}" data-tab="social">
+        <i class="fa-solid fa-users"></i> ความสัมพันธ์ (${allNpcs.length})
+      </button>
+      <button type="button" class="codex-tab-btn ${activeCodexTab === 'protagonist' ? 'active' : ''}" data-tab="protagonist">
+        <i class="fa-solid fa-user"></i> ตัวคุณ (${escapeHtml(character.name.split(' ')[0])})
+      </button>
+      <button type="button" class="codex-tab-btn ${activeCodexTab === 'world' ? 'active' : ''}" data-tab="world">
+        <i class="fa-solid fa-globe"></i> ข้อมูลโลก
+      </button>
+    </div>
+
+    ${tabSocialHtml}
+    ${tabProtagonistHtml}
+    ${tabWorldHtml}
+  `;
+
+  // Add click listeners to drawer tabs
+  Elements.drawers.codexContent.querySelectorAll('.codex-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      activeCodexTab = btn.dataset.tab;
+      renderCodexDrawer();
+    });
+  });
 }
 
 function renderInventoryDrawer() {
