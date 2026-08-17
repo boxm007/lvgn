@@ -294,6 +294,7 @@ async function loadInitialData() {
       populateSettings(settingsData.settings);
     }
 
+    renderTagFilters(State.worlds);
     renderWorldsList(State.worlds);
   } catch (err) {
     showToast('เกิดข้อผิดพลาดในการโหลดข้อมูล: ' + err.message, 'error');
@@ -325,16 +326,80 @@ function switchView(viewName) {
 // ============================================================================
 // VIEW 1: BROWSE WORLDS & CHARACTERS
 // ============================================================================
+function renderTagFilters(worlds = []) {
+  const container = document.getElementById('tag-filters-container');
+  if (!container) return;
+
+  const tagMap = new Map();
+  worlds.forEach(w => {
+    if (w.tag && w.tag.trim()) {
+      const tag = w.tag.trim();
+      tagMap.set(tag, (tagMap.get(tag) || 0) + 1);
+    }
+  });
+
+  let html = `<button class="filter-pill active" data-tag="all">ทั้งหมด (${worlds.length})</button>`;
+  tagMap.forEach((count, tag) => {
+    html += `<button class="filter-pill" data-tag="${escapeHtml(tag)}">${escapeHtml(tag)} (${count})</button>`;
+  });
+
+  container.innerHTML = html;
+
+  container.querySelectorAll('.filter-pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      container.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+
+      const tag = pill.dataset.tag;
+      if (tag === 'all') {
+        renderWorldsList(State.worlds);
+      } else {
+        const filtered = State.worlds.filter(w => w.tag && w.tag.toLowerCase() === tag.toLowerCase());
+        renderWorldsList(filtered);
+      }
+    });
+  });
+}
+
 function renderWorldsList(worlds) {
+  if (!Elements.browse.worldsContainer) return;
   Elements.browse.worldsContainer.innerHTML = '';
 
-  if (worlds.length === 0) {
-    Elements.browse.worldsContainer.innerHTML = `
-      <div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-muted);">
-        <i class="fa-solid fa-earth-americas" style="font-size: 32px; margin-bottom: 12px; display: block;"></i>
-        ยังไม่มีโลกในระบบ กดปุ่ม "สร้างโลกละเอียด" เพื่อเริ่มสร้างจักรวาลของคุณ
-      </div>
-    `;
+  if (!worlds || worlds.length === 0) {
+    if (State.worlds.length === 0) {
+      Elements.browse.worldsContainer.innerHTML = `
+        <div style="grid-column: 1/-1; text-align: center; padding: 48px 20px; color: var(--text-muted);">
+          <i class="fa-solid fa-earth-americas" style="font-size: 40px; margin-bottom: 14px; display: block; color: var(--accent-amber);"></i>
+          <h3 style="font-size: 16px; font-weight: 700; margin-bottom: 6px; color: var(--text-main);">ยังไม่มีโลกในระบบ</h3>
+          <p style="font-size: 13px; color: var(--text-dim); margin-bottom: 18px;">กดปุ่ม "นำเข้า Worldbook" หรือ "สร้างโลกละเอียด" เพื่อเริ่มสร้างจักรวาลของคุณ</p>
+          <div style="display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
+            <button class="btn btn-accent" onclick="document.getElementById('btn-open-worldbook-import').click()">
+              <i class="fa-solid fa-file-import"></i> นำเข้า Worldbook ทันที
+            </button>
+            <button class="btn btn-primary" onclick="document.getElementById('btn-create-world-modal').click()">
+              <i class="fa-solid fa-plus"></i> สร้างโลกละเอียด
+            </button>
+          </div>
+        </div>
+      `;
+    } else {
+      Elements.browse.worldsContainer.innerHTML = `
+        <div style="grid-column: 1/-1; text-align: center; padding: 48px 20px; color: var(--text-muted);">
+          <i class="fa-solid fa-filter-circle-xmark" style="font-size: 40px; margin-bottom: 14px; display: block; color: var(--text-dim);"></i>
+          <h3 style="font-size: 16px; font-weight: 700; margin-bottom: 6px; color: var(--text-main);">ไม่พบโลกที่ตรงกับแท็กหรือคำค้นหา</h3>
+          <p style="font-size: 13px; color: var(--text-dim); margin-bottom: 18px;">ลองค้นหาด้วยคำอื่น หรือกดปุ่มด้านล่างเพื่อแสดงโลกทั้งหมดในระบบ</p>
+          <button class="btn btn-secondary" id="btn-reset-world-filter">
+            <i class="fa-solid fa-rotate-left"></i> แสดงโลกทั้งหมด (${State.worlds.length} โลก)
+          </button>
+        </div>
+      `;
+      document.getElementById('btn-reset-world-filter')?.addEventListener('click', () => {
+        if (Elements.browse.searchInput) Elements.browse.searchInput.value = '';
+        document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+        document.querySelector('.filter-pill[data-tag="all"]')?.classList.add('active');
+        renderWorldsList(State.worlds);
+      });
+    }
     return;
   }
 
@@ -348,10 +413,10 @@ function renderWorldsList(worlds) {
       charsHtml += `
         <div class="char-item-card" data-char-id="${char.id}" data-world-id="${world.id}">
           <div class="char-info-left">
-            <img class="char-avatar" src="${char.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop'}" alt="${char.name}">
+            <img class="char-avatar" src="${char.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop'}" alt="${escapeHtml(char.name)}" onerror="this.src='https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop'">
             <div class="char-title-wrap">
-              <span class="char-item-name">${char.name}</span>
-              <span class="char-item-desc">${char.short_desc || ''}</span>
+              <span class="char-item-name">${escapeHtml(char.name)}</span>
+              <span class="char-item-desc">${escapeHtml(char.short_desc || '')}</span>
             </div>
           </div>
           <button class="btn btn-primary btn-sm btn-select-char" data-char-id="${char.id}" data-world-id="${world.id}">
@@ -362,11 +427,11 @@ function renderWorldsList(worlds) {
     });
 
     card.innerHTML = `
-      <img class="world-cover" src="${world.cover_image || 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=600&auto=format&fit=crop'}" alt="${world.name}">
+      <img class="world-cover" src="${world.cover_image || 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=600&auto=format&fit=crop'}" alt="${escapeHtml(world.name)}">
       <div class="world-card-body">
-        <span class="world-tag-badge">${world.tag || 'Story'}</span>
-        <h3 class="world-title">${world.name}</h3>
-        <p class="world-desc">${world.description}</p>
+        <span class="world-tag-badge">${escapeHtml(world.tag || 'Story')}</span>
+        <h3 class="world-title">${escapeHtml(world.name)}</h3>
+        <p class="world-desc">${escapeHtml(world.description || '')}</p>
         
         <div class="world-chars-section">
           <div class="chars-header">ตัวละครในโลกนี้ (${worldChars.length})</div>
@@ -380,13 +445,25 @@ function renderWorldsList(worlds) {
     Elements.browse.worldsContainer.appendChild(card);
   });
 
-  // Attach click events
+  // Attach click events on character card and button
+  document.querySelectorAll('.char-item-card').forEach(cardEl => {
+    cardEl.addEventListener('click', (e) => {
+      const worldId = cardEl.dataset.worldId;
+      const charId = cardEl.dataset.charId;
+      if (worldId && charId) {
+        openSaveSlotsView(worldId, charId);
+      }
+    });
+  });
+
   document.querySelectorAll('.btn-select-char').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const worldId = btn.dataset.worldId;
       const charId = btn.dataset.charId;
-      openSaveSlotsView(worldId, charId);
+      if (worldId && charId) {
+        openSaveSlotsView(worldId, charId);
+      }
     });
   });
 }
@@ -406,8 +483,8 @@ async function openSaveSlotsView(worldId, characterId) {
   Elements.slots.charBanner.innerHTML = `
     <img class="slots-char-img" src="${State.activeCharacter.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop'}">
     <div>
-      <h3 style="font-size: 17px; font-weight: 700;">${State.activeCharacter.name}</h3>
-      <span style="font-size: 12.5px; color: var(--text-muted);">${State.activeWorld.name}</span>
+      <h3 style="font-size: 17px; font-weight: 700;">${escapeHtml(State.activeCharacter.name)}</h3>
+      <span style="font-size: 12.5px; color: var(--text-muted);">${escapeHtml(State.activeWorld.name)}</span>
     </div>
   `;
 
@@ -1230,8 +1307,20 @@ function populateSettings(settings) {
 // ============================================================================
 function setupEventListeners() {
   // Navigation
-  document.getElementById('btn-home')?.addEventListener('click', () => switchView('view-browse'));
-  Elements.slots.btnBack?.addEventListener('click', () => switchView('view-browse'));
+  document.getElementById('btn-home')?.addEventListener('click', () => {
+    if (Elements.browse.searchInput) Elements.browse.searchInput.value = '';
+    document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+    document.querySelector('.filter-pill[data-tag="all"]')?.classList.add('active');
+    renderWorldsList(State.worlds);
+    switchView('view-browse');
+  });
+  Elements.slots.btnBack?.addEventListener('click', () => {
+    if (Elements.browse.searchInput) Elements.browse.searchInput.value = '';
+    document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+    document.querySelector('.filter-pill[data-tag="all"]')?.classList.add('active');
+    renderWorldsList(State.worlds);
+    switchView('view-browse');
+  });
   Elements.slots.btnNewSlot?.addEventListener('click', createNewSlotHandler);
 
   // DO / SAY Toggle Mode
@@ -1984,28 +2073,18 @@ function setupEventListeners() {
   // Search Filter
   Elements.browse.searchInput?.addEventListener('input', (e) => {
     const q = e.target.value.toLowerCase().trim();
+    if (!q) {
+      renderWorldsList(State.worlds);
+      return;
+    }
     const filtered = State.worlds.filter(w => {
+      const charMatches = State.characters.some(c => c.world_id === w.id && c.name.toLowerCase().includes(q));
       return w.name.toLowerCase().includes(q) ||
         (w.tag && w.tag.toLowerCase().includes(q)) ||
-        (w.description && w.description.toLowerCase().includes(q));
+        (w.description && w.description.toLowerCase().includes(q)) ||
+        charMatches;
     });
     renderWorldsList(filtered);
-  });
-
-  // Tag filter pills
-  document.querySelectorAll('.filter-pill').forEach(pill => {
-    pill.addEventListener('click', () => {
-      document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
-      pill.classList.add('active');
-
-      const tag = pill.dataset.tag;
-      if (tag === 'all') {
-        renderWorldsList(State.worlds);
-      } else {
-        const filtered = State.worlds.filter(w => w.tag && w.tag.toLowerCase().includes(tag.toLowerCase()));
-        renderWorldsList(filtered);
-      }
-    });
   });
 }
 
