@@ -17,6 +17,38 @@ function getChatCompletionsUrl(rawBaseURL) {
   return `${url}/chat/completions`;
 }
 
+function normalizeModelName(rawModel, rawBaseURL = '') {
+  if (!rawModel) return 'deepseek-chat';
+  let m = rawModel.trim();
+  const base = (rawBaseURL || '').toLowerCase();
+  
+  // If not using OpenRouter (e.g. using DeepSeek official, DashScope, SiliconFlow, or standard endpoint)
+  if (!base.includes('openrouter.ai')) {
+    if (m === 'deepseek/deepseek-chat-v4-flash' || m === 'deepseek/deepseek-v4-flash') {
+      m = 'deepseek-v4-flash';
+    } else if (m === 'deepseek/deepseek-chat-v4-pro' || m === 'deepseek/deepseek-v4-pro') {
+      m = 'deepseek-v4-pro';
+    } else if (m === 'deepseek/deepseek-chat' || m === 'deepseek/deepseek-v3') {
+      m = 'deepseek-chat';
+    } else if (m === 'deepseek/deepseek-r1' || m === 'deepseek/deepseek-reasoner') {
+      m = 'deepseek-reasoner';
+    }
+  } else {
+    // OpenRouter mappings
+    if (m === 'deepseek-chat' || m === 'deepseek-v3') {
+      m = 'deepseek/deepseek-chat';
+    } else if (m === 'deepseek-reasoner' || m === 'deepseek-r1') {
+      m = 'deepseek/deepseek-r1';
+    } else if (m === 'qwen-max') {
+      m = 'qwen/qwen-max';
+    } else if (m === 'qwen-2.5-72b-instruct' || m === 'qwen2.5-72b-instruct') {
+      m = 'qwen/qwen-2.5-72b-instruct';
+    }
+  }
+
+  return m;
+}
+
 /**
  * Call AI Brain API (DeepSeek / Qwen / OpenRouter / SiliconFlow / OpenAI Compatible)
  */
@@ -24,10 +56,11 @@ async function callDeepSeek({ messages, temperature = 0.85, max_tokens = 500, re
   const settings = db.getSettings();
   const apiKey = settings.apiKey || config.deepseek.apiKey;
   const baseURL = settings.baseURL || config.deepseek.baseURL;
-  const model = settings.model || config.deepseek.model || 'deepseek-chat';
+  const rawModel = settings.model || config.deepseek.model || 'deepseek-chat';
+  const model = normalizeModelName(rawModel, baseURL);
 
   const body = {
-    model: model.trim(),
+    model: model,
     messages: messages,
     temperature: typeof temperature === 'number' ? temperature : 0.85,
     max_tokens: max_tokens || 500
