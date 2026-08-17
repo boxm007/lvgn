@@ -220,8 +220,18 @@ class Database {
     }
   }
 
-  createSaveSlot(worldId, characterId, slotName) {
-    const character = this.getCharacterById(characterId);
+  createSaveSlot(worldIdOrObj, characterId, slotName) {
+    let worldId = worldIdOrObj;
+    let charId = characterId;
+    let name = slotName;
+
+    if (typeof worldIdOrObj === 'object' && worldIdOrObj !== null) {
+      worldId = worldIdOrObj.world_id;
+      charId = worldIdOrObj.character_id;
+      name = worldIdOrObj.slot_name;
+    }
+
+    const character = this.getCharacterById(charId);
     const world = this.getWorldById(worldId);
     if (!character) throw new Error('Character not found');
 
@@ -244,8 +254,8 @@ class Database {
     const metadata = {
       id: slotId,
       world_id: worldId,
-      character_id: characterId,
-      slot_name: slotName || `การเดินทาง ${new Date().toLocaleDateString('th-TH')}`,
+      character_id: charId,
+      slot_name: name || `การเดินทาง ${new Date().toLocaleDateString('th-TH')}`,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
@@ -263,7 +273,7 @@ class Database {
     const inventory = JSON.parse(JSON.stringify(character.initial_inventory || []));
 
     // Populate initial World Roster (all other characters in this world)
-    const worldChars = this.getCharacters(worldId).filter(c => c.id !== characterId);
+    const worldChars = this.getCharacters().filter(c => c.world_id === worldId && c.id !== charId);
     const initialRoster = worldChars.map(c => ({
       id: c.id,
       name: c.name,

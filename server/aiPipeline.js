@@ -213,39 +213,22 @@ async function executeTurnPipeline({ slotId, playerInput, customRoll = null }) {
   const maxStoryTokens = parseInt(stylePreset.max_response_tokens || settings.maxTokens || 500, 10);
 
   // ==========================================
-  // STAGE 1: AI #1 — Context Extractor (Layer 1 Master Index)
+  // STAGE 1 & 2: DETERMINISTIC MECHANICAL GM & FATE ENGINE (0ms)
   // ==========================================
-  let extractedContext = {
-    action_type: playerInput.type.toLowerCase(),
-    relevant_stat: playerInput.type === 'Do' ? 'strength' : 'charisma',
-    relevant_characters: [character.id],
-    relevant_inventory_items: [],
-    potential_secret_flags: [],
-    requires_roll: true
-  };
-
-  try {
-    const masterIndex = generateMasterIndex(world, character, slot);
-    const recentHistoryText = (slot.history || []).slice(-3).map(h => `[${h.role}]: ${h.content}`).join('\n');
-    const extractorPrompt = getContextExtractorPrompt(playerInput, masterIndex, recentHistoryText);
-
-    const extractorRes = await callDeepSeek({
-      messages: [{ role: 'system', content: extractorPrompt }],
-      temperature: 0.2,
-      max_tokens: 300,
-      response_format: { type: 'json_object' }
-    });
-
-    const parsedContext = cleanAndParseJSON(extractorRes);
-    extractedContext = { ...extractedContext, ...parsedContext };
-  } catch (err) {
-    console.warn('AI #1 Extractor fallback:', err.message);
+  const textLower = playerInput.text.toLowerCase();
+  let statToCheck = 'charisma';
+  if (playerInput.type === 'Do') {
+    if (/วิ่ง|หลบ|กระโดด|ปีน|เร็ว|หนี/.test(textLower)) statToCheck = 'agility';
+    else if (/มอง|สังเกต|สำรวจ|ค้น|ฟัง|ตรวจ/.test(textLower)) statToCheck = 'perception';
+    else if (/คิด|คำนวณ|วิเคราะห์|ร่าย|เวท|กลยุทธ์/.test(textLower)) statToCheck = 'intelligence';
+    else if (/ยิ้ม|พูด|ทัก|ปลอบ|กล่อม|เจรจา|ขอร้อง/.test(textLower)) statToCheck = 'charisma';
+    else statToCheck = 'strength';
+  } else {
+    if (/หลอก|โกหก|ขู่|โน้มน้าว|ร้องขอ|ทักทาย|ถาม/.test(textLower)) statToCheck = 'charisma';
+    else if (/วิเคราะห์|ตั้งสมมติฐาน|อธิบาย/.test(textLower)) statToCheck = 'intelligence';
+    else statToCheck = 'charisma';
   }
 
-  // ==========================================
-  // DETERMINISTIC STAGE: Fate Engine (Pure JS/D20)
-  // ==========================================
-  const statToCheck = extractedContext.relevant_stat || (playerInput.type === 'Do' ? 'strength' : 'charisma');
   let modifier = 0;
   if (customRoll && typeof customRoll.modifier === 'number') {
     modifier = customRoll.modifier;
@@ -258,7 +241,7 @@ async function executeTurnPipeline({ slotId, playerInput, customRoll = null }) {
     fateResult = {
       d20: 10,
       modifier: 0,
-      statName: 'none',
+      statName: statToCheck,
       total: 10,
       tier: 'success',
       tier_th: 'ดำเนินไปตามปกติ',
@@ -273,71 +256,46 @@ async function executeTurnPipeline({ slotId, playerInput, customRoll = null }) {
     });
   }
 
-  // ==========================================
-  // STAGE 2: AI #2 — Mechanical GM & Reasoning Engine
-  // ==========================================
-  let consequence = {
+  // Determine outcome summary based on Fate Tier
+  let outcomeSummary = 'การกระทำดำเนินต่อไปอย่างราบรื่น';
+  if (fateResult.tier === 'critical_success') {
+    outcomeSummary = 'การกระทำประสบความสำเร็จขั้นสูงสุด ได้ผลลัพธ์ยอดเยี่ยมเกินคาดและสร้างความประทับใจลึกซึ้ง';
+  } else if (fateResult.tier === 'success') {
+    outcomeSummary = 'การกระทำประสบความสำเร็จตามที่มุ่งหวัง ทุกอย่างดำเนินไปอย่างราบรื่น';
+  } else if (fateResult.tier === 'success_with_consequence') {
+    outcomeSummary = 'สำเร็จแต่มีอุปสรรคหรือความตึงเครียดตามมาเล็กน้อย ต้องแลกด้วยความพยายามหรือความรู้สึกประหม่า';
+  } else if (fateResult.tier === 'failure') {
+    outcomeSummary = 'เกิดความผิดพลาดหรือไม่เป็นไปตามแผน ต้องเผชิญหน้ากับความท้าทายหรือปฏิกิริยาที่เย็นชา/ตึงเครียด';
+  } else if (fateResult.tier === 'critical_failure') {
+    outcomeSummary = 'เกิดความล้มเหลวร้ายแรง นำมาซึ่งความเสียหาย ความเข้าใจผิด หรืออันตรายฉับพลัน';
+  }
+
+  const consequence = {
     roll_result: fateResult.tier,
-    outcome_summary: 'การกระทำดำเนินต่อไป',
-    consequence_summary: 'การสนทนาดำเนินต่อไป',
+    outcome_summary: outcomeSummary,
+    consequence_summary: outcomeSummary,
     state_changes: {
-      relationship_deltas: [{ character_id: character.id, delta: 1, reason: 'ปฏิสัมพันธ์ทั่วไป' }],
+      relationship_deltas: [],
       inventory_changes: [],
-      emotion_updates: [{ character_id: character.id, new_emotion: slot.dynamic_state.current_emotion || 'ปกติ' }],
+      emotion_updates: [],
       secret_notes_unlocked: []
     },
     narrative_directives: {
       must_include: [],
-      tone_hint: 'neutral'
+      tone_hint: stylePreset.tone_directive || 'drama'
     },
     discovered_npc: null
   };
-
-  try {
-    const knownNpcNames = [
-      ...(slot.roster || []).map(n => n.name),
-      ...(slot.discovered_npcs || []).map(n => n.name)
-    ];
-    const reasoningPrompt = getReasoningPrompt({
-      playerInput,
-      fateResult,
-      activeCharacter: { ...character, dynamic_state: slot.dynamic_state },
-      worldContext: world,
-      worldRoster: slot.roster || [],
-      relevantDetails: {
-        inventory: extractedContext.relevant_inventory_items || [],
-        secrets: extractedContext.potential_secret_flags || []
-      },
-      knownDiscoveredNpcs: knownNpcNames
-    });
-
-    const reasoningRes = await callDeepSeek({
-      messages: [{ role: 'system', content: reasoningPrompt }],
-      temperature: 0.35,
-      max_tokens: 500,
-      response_format: { type: 'json_object' }
-    });
-
-    const parsedReasoning = cleanAndParseJSON(reasoningRes);
-    consequence = { ...consequence, ...parsedReasoning };
-    if (!consequence.outcome_summary && consequence.consequence_summary) {
-      consequence.outcome_summary = consequence.consequence_summary;
-    }
-  } catch (err) {
-    console.warn('AI #2 Reasoning fallback:', err.message);
-    if (fateResult.tier === 'critical_success') consequence.outcome_summary = 'การกระทำประสบความสำเร็จอย่างงดงาม';
-    if (fateResult.tier === 'critical_failure') consequence.outcome_summary = 'เกิดความผิดพลาดอย่างรุนแรงและมีผลเสียตามมา';
-  }
 
   // ==========================================
   // ADVANCE SCENE TIME & LOCATION (Section 1, 7, 39)
   // ==========================================
   const currentScene = slot.dynamic_state.scene || { day: 1, time: "08:30", location: world.name || "จุดเริ่มต้น" };
-  const updatedScene = advanceSceneTime(currentScene, consequence.scene_updates || {});
+  const updatedScene = advanceSceneTime(currentScene);
   slot.dynamic_state.scene = updatedScene;
 
   // ==========================================
-  // STAGE 3: AI #3 — Storyteller / Prose Craft Engine
+  // STAGE 3: AI #3 — AUTHORITATIVE MASTER STORYTELLER (Prose Craft Engine)
   // ==========================================
   const storytellerSysPrompt = getStorytellerSystemPrompt(stylePreset);
   const storytellerUserPrompt = getStorytellerUserPrompt({
@@ -353,20 +311,48 @@ async function executeTurnPipeline({ slotId, playerInput, customRoll = null }) {
     customInstructions: stylePreset.custom_instructions || ''
   });
 
-  const narrationText = await callDeepSeek({
-    messages: [
-      { role: 'system', content: storytellerSysPrompt },
-      { role: 'user', content: storytellerUserPrompt }
-    ],
-    temperature: parseFloat(stylePreset.temperature || 0.85),
-    max_tokens: maxStoryTokens
-  });
+  let narrationText = '';
+  try {
+    narrationText = await callDeepSeek({
+      messages: [
+        { role: 'system', content: storytellerSysPrompt },
+        { role: 'user', content: storytellerUserPrompt }
+      ],
+      temperature: parseFloat(stylePreset.temperature || 0.85),
+      max_tokens: maxStoryTokens
+    });
+  } catch (err) {
+    console.error('Storyteller call error:', err.message);
+  }
 
-  // ==========================================
-  // STAGE 4: AI #4 — State Commit & Memory Cement
-  // ==========================================
-  // Ensure compact scene status header format: [ วันที่ X | เวลา XX:XX น. | สถานที่: ... ]
+  // Safety Fallback: Ensure narration is never empty or header-only
   const sceneHeader = `📍 **[ วันที่ ${updatedScene.day} | เวลา ${updatedScene.time} น. | สถานที่: ${updatedScene.location} ]**\n\n`;
+  let bodyOnly = (narrationText || '').replace(/📍\s*\*\*\[[^\]]+\]\*\*/g, '').trim();
+
+  if (bodyOnly.length < 20) {
+    console.warn('Narration returned empty/short body, running emergency fallback pass...');
+    try {
+      const retryRes = await callDeepSeek({
+        messages: [
+          { role: 'system', content: `คุณคือนักเขียนนิยาย RPG ภาษาไทย จงเขียนบทบรรยาย 2 ย่อหน้าตอบสนองต่อการกระทำของผู้เล่นในฉากอย่างมีชีวิตชีวา โดยเริ่มด้วยบรรทัดสถานะฉากเสมอ` },
+          { role: 'user', content: `[ตัวเอก]: ${character.name} | [โลก]: ${world.name}\n[การกระทำ]: ${playerInput.type} "${playerInput.text}"\n[ผลลัพธ์]: ${fateResult.tier_th}\n\nจงเริ่มบรรยายโดยขึ้นต้นด้วย: 📍 **[ วันที่ ${updatedScene.day} | เวลา ${updatedScene.time} น. | สถานที่: ${updatedScene.location} ]**` }
+        ],
+        temperature: 0.7,
+        max_tokens: maxStoryTokens
+      });
+      narrationText = retryRes;
+      bodyOnly = (narrationText || '').replace(/📍\s*\*\*\[[^\]]+\]\*\*/g, '').trim();
+    } catch (retryErr) {
+      console.error('Emergency retry error:', retryErr.message);
+    }
+  }
+
+  // Final guaranteed fallback if AI network is completely unreachable
+  if (bodyOnly.length < 20) {
+    bodyOnly = `สายลมอ่อนพัดผ่านพื้นที่ของ ${updatedScene.location} บรรยากาศรอบตัวเต็มไปด้วยความเงียบสงบชั่วขณะ หลังจากการกระทำของ ${character.name} สิ้นสุดลง ผู้คนในบริเวณต่างหันมาจับจ้องด้วยความสนใจ ปฏิกิริยาของสิ่งรอบข้างเริ่มก่อตัวขึ้นตามผลลัพธ์ของชะตากรรม`;
+    narrationText = sceneHeader + bodyOnly;
+  }
+
   let finalNarration = narrationText.trim();
   if (!finalNarration.startsWith('📍') && !finalNarration.includes('[ วันที่')) {
     finalNarration = sceneHeader + finalNarration;

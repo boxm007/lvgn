@@ -156,12 +156,12 @@ Your primary purpose is to immerse the player into a living, responsive world as
 กฎเหล็กบังคับเริ่มต้นทุกข้อความ — MANDATORY SCENE STATUS HEADER (Sections 1, 7, 39)
 ===============================================================================
 ทุกครั้งที่เริ่มเขียนคำบรรยาย บรรทัดแรกสุดของข้อความจะต้องขึ้นต้นด้วยการระบุสถานะของฉากปัจจุบันในรูปแบบนี้เสมอ:
-📍 [ วันที่ {day} | เวลา {time} น. | สถานที่: {location} ]
+📍 **[ วันที่ {day} | เวลา {time} น. | สถานที่: {location} ]**
 
 ตัวอย่าง:
-📍 [ วันที่ 11 | เวลา 11:40 น. | สถานที่: โรงเรียน ]
+📍 **[ วันที่ 1 | เวลา 08:30 น. | สถานที่: โรงเรียนวีรชน ]**
 
-หลังจากบรรทัดนี้ ให้เว้น 1 บรรทัดว่าง แล้วจึงเริ่มบทบรรยายวรรณกรรมตามปกติ ห้ามละเว้นบรรทัดสถานะนี้โดยเด็ดขาด!
+หลังจากบรรทัดนี้ ให้เว้น 1 บรรทัดว่าง แล้วจึงเริ่มบทบรรยายวรรณกรรมตามปกติอย่างต่อเนื่อง 2-3 ย่อหน้า ห้ามละเว้นบรรทัดสถานะนี้ และห้ามตอบกลับเป็นค่าว่างเด็ดขาด!
 
 ===============================================================================
 MASTER PROSE CRAFT DIRECTIVES (Sections 3, 4, 5, 8, 11, 28, 34, 44)
@@ -186,11 +186,10 @@ MASTER PROSE CRAFT DIRECTIVES (Sections 3, 4, 5, 8, 11, 28, 34, 44)
 5. DIALOGUE WITH SUBTEXT & ACTION BEATS (Sections 4, 11):
    - Spoken words must have subtext; characters do not always say their true motives.
    - Integrate pauses, hesitations, eye movements, posture shifts, and pregnant silences. Silence is a valid and powerful answer.
+   - ใส่บทสนทนาในเครื่องหมายคำพูด "..." หรือ “...” เสมอ
 
 6. ABSOLUTE PLAYER AGENCY & BOUNDARY (Section 2):
    NEVER arbitrarily decide the player character's internal thoughts, feelings, physical movements, or spoken words. Only narrate the world's response and the NPC's actions, leaving the player room to react.
-   - ❌ ห้ามเขียน: "คุณรู้สึกกลัวและรีบถอยหลังหนี"
-   - ✅ ให้เขียน: "เงาร่างทึบก้าวข้ามธรณีประตูเข้ามา ระยะห่างระหว่างคุณกับมันเหลือไม่ถึงสองก้าว ประตูข้างหลังยังคงเปิดแง้มอยู่"
 
 7. CHARACTER PSYCHOLOGY & EMOTIONAL RESIDUE (Sections 5 & 6):
    Characters possess distinct goals, flaws, defense mechanisms, and memories. Emotional changes are gradual and earned through shared moments or friction.
@@ -217,9 +216,9 @@ ${pacing ? `- Custom Pacing: ${pacing}` : ''}
 
 [FINAL STORYTELLER CHECK (Section 38)]
 Verify internally before outputting:
-1. Did I start with the exact scene status header line?
-2. Did I preserve player agency without puppeting their mind/actions?
-3. Is the prose evocative, visceral, and free of filter words?
+1. Did I start with the exact scene status header line: 📍 **[ วันที่ X | เวลา XX:XX น. | สถานที่: ... ]**?
+2. Did I write rich, expressive Thai prose (2-3 paragraphs)?
+3. Did I preserve player agency without puppeting their mind/actions?
 4. Did I end on a compelling narrative hook?`;
 }
 
@@ -239,19 +238,27 @@ function getStorytellerUserPrompt(turnData) {
 
   let historyText = '';
   if (recentHistory && recentHistory.length > 0) {
-    historyText = recentHistory.map(h => {
-      if (h.role === 'user') return `ผู้เล่น [${h.type || 'Input'}]: ${h.content}`;
-      return `Storyteller / NPCs: ${h.content}`;
-    }).join('\n\n');
+    const validHistory = recentHistory.filter(h => {
+      if (!h || !h.content) return false;
+      const stripped = h.content.replace(/📍\s*\*\*\[[^\]]+\]\*\*/g, '').trim();
+      return stripped.length > 0;
+    });
+
+    if (validHistory.length > 0) {
+      historyText = validHistory.map(h => {
+        if (h.role === 'user') return `ผู้เล่น [${h.type || 'Input'}]: ${h.content}`;
+        return `Storyteller / NPCs: ${h.content}`;
+      }).join('\n\n');
+    }
   }
 
-  const directives = consequence.narrative_directives || {};
+  const directives = consequence?.narrative_directives || {};
   const currentScene = scene || character.dynamic_state?.scene || { day: 1, time: "08:30", location: world.name || "จุดเริ่มต้น" };
 
   return `[RUNTIME CONTEXT — SECTION 39]
 
 [MANDATORY SCENE HEADER FOR THIS TURN]
-📍 [ วันที่ ${currentScene.day} | เวลา ${currentScene.time} น. | สถานที่: ${currentScene.location} ]
+📍 **[ วันที่ ${currentScene.day} | เวลา ${currentScene.time} น. | สถานที่: ${currentScene.location} ]**
 
 [WORLD CANON & SETTING]
 World: ${world.name} | Setting/Tag: ${world.tag || 'Hero Academy'}
@@ -264,7 +271,7 @@ Background & Drive: ${character.static_profile?.history || ''}
 Base Stats: ${JSON.stringify(character.static_profile?.base_stats || {})}
 
 [WORLD ROSTER & KNOWN CHARACTERS IN THIS WORLD]
-${JSON.stringify(worldRoster || [])}
+${JSON.stringify((worldRoster || []).map(r => ({ name: r.name, role: r.role, emotion: r.current_emotion, relationship: r.relationship_status })))}
 
 [RELEVANT MEMORIES & ROLLING SUMMARY]
 ${rollingSummary ? `ความทรงจำที่ผ่านมา: ${rollingSummary}` : 'เพิ่งเริ่มต้นการเดินทาง'}
@@ -273,9 +280,9 @@ ${rollingSummary ? `ความทรงจำที่ผ่านมา: ${ro
 ${historyText || 'ไม่มี (เพิ่งเริ่มเทิร์นแรก)'}
 
 [FATE RESULT — AUTHORITATIVE MECHANIC]
-Dice Roll: D20 (${fateResult.d20}) + [${fateResult.statName}: ${fateResult.modifier >= 0 ? '+' : ''}${fateResult.modifier}] = ${fateResult.total} (DC: ${fateResult.targetDC})
+Dice Roll: D20 (${fateResult.d20}) + [${fateResult.statName}: ${fateResult.modifier >= 0 ? '+' : ''}${fateResult.modifier}] = ${fateResult.total} (DC: ${fateResult.targetDC || 12})
 Normalized Outcome Tier: ${fateResult.tier_th}
-Outcome Summary (Referee Truth): "${consequence.outcome_summary}"
+Outcome Summary (Referee Truth): "${consequence?.outcome_summary || 'การกระทำดำเนินต่อไป'}"
 Must Include in Narration: ${JSON.stringify(directives.must_include || [])}
 Tone Hint: ${directives.tone_hint || 'drama'}
 
@@ -284,7 +291,7 @@ Player Type: [${playerInput.type}]
 Player Action/Dialogue: "${playerInput.text}"
 
 ${customInstructions ? `[คำสั่งเพิ่มเติมพิเศษสำหรับข้อความนี้]: ${customInstructions}\n` : ''}
-เริ่มบรรยายโดยขึ้นต้นบรรทัดแรกด้วย \`📍 [ วันที่ ${currentScene.day} | เวลา ${currentScene.time} น. | สถานที่: ${currentScene.location} ]\` แล้วตามด้วยวรรณกรรมภาษาไทยชั้นยอด:`;
+จงเริ่มเขียนบทบรรยายวรรณกรรมภาษาไทย 2-3 ย่อหน้าที่ทรงพลังและมีชีวิตชีวา โดยขึ้นต้นบรรทัดแรกด้วย: 📍 **[ วันที่ ${currentScene.day} | เวลา ${currentScene.time} น. | สถานที่: ${currentScene.location} ]**`;
 }
 
 // ==========================================
