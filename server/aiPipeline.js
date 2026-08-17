@@ -11,17 +11,23 @@ const {
   getPrologueGeneratorPrompt
 } = require('./prompts');
 
+function getChatCompletionsUrl(rawBaseURL) {
+  let url = (rawBaseURL || 'https://api.deepseek.com').trim().replace(/\/+$/, '');
+  if (url.endsWith('/chat/completions')) return url;
+  return `${url}/chat/completions`;
+}
+
 /**
- * Call DeepSeek Chat API
+ * Call AI Brain API (DeepSeek / Qwen / OpenRouter / SiliconFlow / OpenAI Compatible)
  */
 async function callDeepSeek({ messages, temperature = 0.85, max_tokens = 500, response_format = null }) {
   const settings = db.getSettings();
   const apiKey = settings.apiKey || config.deepseek.apiKey;
-  const baseURL = (settings.baseURL || config.deepseek.baseURL).replace(/\/+$/, '');
+  const baseURL = settings.baseURL || config.deepseek.baseURL;
   const model = settings.model || config.deepseek.model || 'deepseek-chat';
 
   const body = {
-    model: model,
+    model: model.trim(),
     messages: messages,
     temperature: typeof temperature === 'number' ? temperature : 0.85,
     max_tokens: max_tokens || 500
@@ -31,7 +37,7 @@ async function callDeepSeek({ messages, temperature = 0.85, max_tokens = 500, re
     body.response_format = response_format;
   }
 
-  const endpoint = `${baseURL}/chat/completions`;
+  const endpoint = getChatCompletionsUrl(baseURL);
 
   let lastErr = null;
   for (let attempt = 1; attempt <= 3; attempt++) {
@@ -40,19 +46,24 @@ async function callDeepSeek({ messages, temperature = 0.85, max_tokens = 500, re
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
+          'Authorization': `Bearer ${apiKey.trim()}`
         },
         body: JSON.stringify(body)
       });
 
       if (!response.ok) {
         const errText = await response.text();
-        throw new Error(`DeepSeek API error (${response.status}): ${errText}`);
+        let parsedErr = errText;
+        try {
+          const jsonErr = JSON.parse(errText);
+          parsedErr = jsonErr.error?.message || jsonErr.message || errText;
+        } catch (e) {}
+        throw new Error(`AI API error (${response.status}): ${parsedErr}`);
       }
 
       const data = await response.json();
       if (!data.choices || data.choices.length === 0) {
-        throw new Error('DeepSeek API returned empty choices');
+        throw new Error('AI API returned empty choices');
       }
 
       return data.choices[0].message.content;

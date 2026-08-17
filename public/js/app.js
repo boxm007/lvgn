@@ -182,6 +182,7 @@ const Elements = {
     btnSavePreset: document.getElementById('btn-save-preset'),
     settings: document.getElementById('drawer-settings'),
     apiKey: document.getElementById('input-api-key'),
+    labelApiKey: document.getElementById('label-api-key'),
     btnToggleKey: document.getElementById('btn-toggle-key-visibility'),
     btnTestApiKey: document.getElementById('btn-test-api-key'),
     apiVerifyBox: document.getElementById('api-verify-box'),
@@ -189,8 +190,11 @@ const Elements = {
     verifyStatusTitle: document.getElementById('verify-status-title'),
     verifyDetailText: document.getElementById('verify-detail-text'),
     headerApiDot: document.getElementById('header-api-dot'),
+    selectModelPreset: document.getElementById('select-model-preset'),
     modelName: document.getElementById('input-model-name'),
+    modelHintText: document.getElementById('model-hint-text'),
     baseURL: document.getElementById('input-base-url'),
+    baseURLHint: document.getElementById('base-url-hint'),
     globalTokens: document.getElementById('input-global-tokens'),
     globalTokensVal: document.getElementById('val-global-tokens'),
     temperature: document.getElementById('input-temperature'),
@@ -1281,23 +1285,112 @@ function updateChipActiveState(tokens) {
   });
 }
 
+const AI_PROVIDERS = {
+  deepseek: {
+    name: 'DeepSeek Official',
+    baseURL: 'https://api.deepseek.com',
+    defaultModel: 'deepseek-chat',
+    keyPlaceholder: 'sk-... (ใส่ DeepSeek API Key)',
+    keyLabel: 'DeepSeek API Key',
+    hintText: 'โมเดลที่เลือก: <code>deepseek-chat</code> (V3 ตอบไว/เล่าเรื่องลื่นไหล)',
+    baseURLHint: 'สำหรับ DeepSeek: <code>https://api.deepseek.com</code>'
+  },
+  qwen: {
+    name: 'Qwen (DashScope / Alibaba)',
+    baseURL: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
+    defaultModel: 'qwen-max',
+    keyPlaceholder: 'sk-... (ใส่ DashScope Qwen Key)',
+    keyLabel: 'Alibaba DashScope API Key',
+    hintText: 'โมเดลที่เลือก: <code>qwen-max</code> (เรือธง สมองฉลาดขั้นสูงสุด)',
+    baseURLHint: 'สำหรับ Qwen: <code>https://dashscope-intl.aliyuncs.com/compatible-mode/v1</code> หรือ <code>https://dashscope.aliyuncs.com/compatible-mode/v1</code>'
+  },
+  openrouter: {
+    name: 'OpenRouter',
+    baseURL: 'https://openrouter.ai/api/v1',
+    defaultModel: 'deepseek/deepseek-chat',
+    keyPlaceholder: 'sk-or-v1-... (ใส่ OpenRouter Key)',
+    keyLabel: 'OpenRouter API Key',
+    hintText: 'โมเดลที่เลือก: <code>deepseek/deepseek-chat</code> (OpenRouter)',
+    baseURLHint: 'สำหรับ OpenRouter: <code>https://openrouter.ai/api/v1</code>'
+  },
+  siliconflow: {
+    name: 'SiliconFlow',
+    baseURL: 'https://api.siliconflow.cn/v1',
+    defaultModel: 'deepseek-ai/DeepSeek-V3',
+    keyPlaceholder: 'sk-... (ใส่ SiliconFlow Key)',
+    keyLabel: 'SiliconFlow API Key',
+    hintText: 'โมเดลที่เลือก: <code>deepseek-ai/DeepSeek-V3</code> (SiliconFlow)',
+    baseURLHint: 'สำหรับ SiliconFlow: <code>https://api.siliconflow.cn/v1</code>'
+  },
+  custom: {
+    name: 'Custom Endpoint',
+    baseURL: '',
+    defaultModel: '',
+    keyPlaceholder: 'sk-... (ใส่ Custom API Key)',
+    keyLabel: 'Custom API Key',
+    hintText: 'กำหนดชื่อโมเดลและ Base URL ตามที่คุณต้องการ (รองรับ OpenAI Compatible ทุกตัว)',
+    baseURLHint: 'ระบุ Base URL เช่น <code>http://localhost:11434/v1</code> หรือคลาวด์ของคุณ'
+  }
+};
+
 function populateSettings(settings) {
   if (!settings) return;
-  Elements.drawers.apiKey.value = settings.apiKey || '';
-  Elements.drawers.modelName.value = settings.model || 'deepseek-chat';
-  Elements.drawers.baseURL.value = settings.baseURL || 'https://api.deepseek.com';
-  Elements.drawers.temperature.value = settings.temperature || 0.85;
-  Elements.drawers.tempVal.innerText = settings.temperature || 0.85;
+  const currentKey = settings.apiKey || '';
+  const currentModel = settings.model || 'deepseek-chat';
+  const currentBaseURL = settings.baseURL || 'https://api.deepseek.com';
+
+  if (Elements.drawers.apiKey) Elements.drawers.apiKey.value = currentKey;
+  if (Elements.drawers.modelName) Elements.drawers.modelName.value = currentModel;
+  if (Elements.drawers.baseURL) Elements.drawers.baseURL.value = currentBaseURL;
+  if (Elements.drawers.temperature) {
+    Elements.drawers.temperature.value = settings.temperature !== undefined ? settings.temperature : 0.85;
+    if (Elements.drawers.tempVal) Elements.drawers.tempVal.innerText = settings.temperature !== undefined ? settings.temperature : 0.85;
+  }
   
   const tokens = settings.maxTokens || 500;
-  Elements.drawers.globalTokens.value = tokens;
-  Elements.drawers.globalTokensVal.innerText = tokens;
+  if (Elements.drawers.globalTokens) Elements.drawers.globalTokens.value = tokens;
+  if (Elements.drawers.globalTokensVal) Elements.drawers.globalTokensVal.innerText = tokens;
+
+  // Auto-detect provider
+  let detectedProvider = 'deepseek';
+  const lowerBase = currentBaseURL.toLowerCase();
+  const lowerModel = currentModel.toLowerCase();
+  if (lowerBase.includes('dashscope') || lowerModel.startsWith('qwen')) {
+    detectedProvider = 'qwen';
+  } else if (lowerBase.includes('openrouter')) {
+    detectedProvider = 'openrouter';
+  } else if (lowerBase.includes('siliconflow')) {
+    detectedProvider = 'siliconflow';
+  } else if (!lowerBase.includes('deepseek')) {
+    detectedProvider = 'custom';
+  }
+
+  // Update provider chips UI
+  document.querySelectorAll('.btn-provider-chip').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.provider === detectedProvider);
+  });
+
+  const pConfig = AI_PROVIDERS[detectedProvider] || AI_PROVIDERS.custom;
+  if (Elements.drawers.labelApiKey) Elements.drawers.labelApiKey.innerText = pConfig.keyLabel;
+  if (Elements.drawers.apiKey && !currentKey) Elements.drawers.apiKey.placeholder = pConfig.keyPlaceholder;
+
+  // Sync Dropdown
+  if (Elements.drawers.selectModelPreset) {
+    const matchedOption = Array.from(Elements.drawers.selectModelPreset.options).find(opt => opt.value === currentModel);
+    Elements.drawers.selectModelPreset.value = matchedOption ? currentModel : 'custom';
+  }
+
+  if (Elements.drawers.modelHintText) {
+    Elements.drawers.modelHintText.innerHTML = `โมเดลที่เลือก: <code>${escapeHtml(currentModel)}</code>`;
+  }
 
   if (Elements.drawers.headerApiDot) {
-    if (settings.apiKey && settings.apiKey.trim()) {
+    if (currentKey && currentKey.trim()) {
       Elements.drawers.headerApiDot.className = 'api-status-dot green';
+      Elements.drawers.headerApiDot.title = `AI Model: ${currentModel} (เชื่อมต่อแล้ว)`;
     } else {
       Elements.drawers.headerApiDot.className = 'api-status-dot red';
+      Elements.drawers.headerApiDot.title = 'ยังไม่ได้ตั้งค่า API Key';
     }
   }
 }
@@ -1452,7 +1545,72 @@ function setupEventListeners() {
     showToast('เพิ่มไอเทมเรียบร้อย', 'success');
   });
 
-  // Settings Handlers
+  // ==========================================
+  // AI BRAIN & SETTINGS HANDLERS (DEEPSEEK / QWEN)
+  // ==========================================
+  // Provider Chips Selection
+  document.querySelectorAll('.btn-provider-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('.btn-provider-chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+
+      const providerKey = chip.dataset.provider;
+      const provider = AI_PROVIDERS[providerKey];
+      if (!provider) return;
+
+      if (providerKey !== 'custom' && provider.baseURL) {
+        Elements.drawers.baseURL.value = provider.baseURL;
+      }
+      if (providerKey !== 'custom' && provider.defaultModel) {
+        Elements.drawers.modelName.value = provider.defaultModel;
+        if (Elements.drawers.selectModelPreset) {
+          Elements.drawers.selectModelPreset.value = provider.defaultModel;
+        }
+      }
+      if (Elements.drawers.apiKey) {
+        Elements.drawers.apiKey.placeholder = provider.keyPlaceholder;
+      }
+      if (Elements.drawers.labelApiKey) {
+        Elements.drawers.labelApiKey.innerText = provider.keyLabel;
+      }
+      if (Elements.drawers.modelHintText) {
+        Elements.drawers.modelHintText.innerHTML = provider.hintText;
+      }
+      if (Elements.drawers.baseURLHint) {
+        Elements.drawers.baseURLHint.innerHTML = provider.baseURLHint;
+      }
+    });
+  });
+
+  // Model Preset Selector
+  Elements.drawers.selectModelPreset?.addEventListener('change', (e) => {
+    const val = e.target.value;
+    if (val !== 'custom') {
+      Elements.drawers.modelName.value = val;
+      if (Elements.drawers.modelHintText) {
+        Elements.drawers.modelHintText.innerHTML = `โมเดลที่เลือก: <code>${escapeHtml(val)}</code>`;
+      }
+    } else {
+      Elements.drawers.modelName.focus();
+      if (Elements.drawers.modelHintText) {
+        Elements.drawers.modelHintText.innerHTML = `✏️ กำหนดชื่อโมเดลเองในช่องด้านล่าง`;
+      }
+    }
+  });
+
+  // Model Name Input Sync
+  Elements.drawers.modelName?.addEventListener('input', (e) => {
+    const val = e.target.value.trim();
+    if (Elements.drawers.selectModelPreset) {
+      const matchedOption = Array.from(Elements.drawers.selectModelPreset.options).find(opt => opt.value === val);
+      Elements.drawers.selectModelPreset.value = matchedOption ? val : 'custom';
+    }
+    if (Elements.drawers.modelHintText) {
+      Elements.drawers.modelHintText.innerHTML = `โมเดลที่เลือก: <code>${escapeHtml(val || 'ยังไม่ได้ระบุ')}</code>`;
+    }
+  });
+
+  // Global Tokens & Temperature Sliders
   Elements.drawers.globalTokens?.addEventListener('input', (e) => {
     Elements.drawers.globalTokensVal.innerText = e.target.value;
   });
@@ -1473,12 +1631,12 @@ function setupEventListeners() {
     const baseURL = Elements.drawers.baseURL.value.trim() || 'https://api.deepseek.com';
 
     if (!apiKey) {
-      showToast('กรุณากรอก DeepSeek API Key ก่อนทดสอบ', 'error');
+      showToast('กรุณากรอก API Key ก่อนทดสอบ', 'error');
       if (Elements.drawers.apiVerifyBox) {
         Elements.drawers.apiVerifyBox.style.display = 'flex';
         Elements.drawers.apiVerifyBox.className = 'api-verify-box error';
         Elements.drawers.verifyHeaderRow.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> <span id="verify-status-title">ยังไม่ได้ระบุ API Key</span>';
-        Elements.drawers.verifyDetailText.innerText = 'กรุณาใส่ API Key ที่ขึ้นต้นด้วย sk-... แล้วกดทดสอบอีกครั้ง';
+        Elements.drawers.verifyDetailText.innerText = 'กรุณาใส่ API Key ที่ถูกต้องแล้วกดทดสอบอีกครั้ง';
       }
       if (Elements.drawers.headerApiDot) Elements.drawers.headerApiDot.className = 'api-status-dot red';
       return;
@@ -1486,12 +1644,12 @@ function setupEventListeners() {
 
     // Loading State
     Elements.drawers.btnTestApiKey.disabled = true;
-    Elements.drawers.btnTestApiKey.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> กำลังทดสอบเชื่อมต่อ...';
+    Elements.drawers.btnTestApiKey.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> กำลังทดสอบเชื่อมต่อโมเดล...';
     if (Elements.drawers.apiVerifyBox) {
       Elements.drawers.apiVerifyBox.style.display = 'flex';
       Elements.drawers.apiVerifyBox.className = 'api-verify-box loading';
-      Elements.drawers.verifyHeaderRow.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> <span id="verify-status-title">กำลังทดสอบส่งข้อความไปยัง DeepSeek...</span>';
-      Elements.drawers.verifyDetailText.innerText = `กำลังส่ง Ping ไปที่ ${baseURL} (โมเดล: ${model})...`;
+      Elements.drawers.verifyHeaderRow.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> <span id="verify-status-title">กำลังทดสอบส่ง Ping ไปยัง AI...</span>';
+      Elements.drawers.verifyDetailText.innerText = `กำลังส่งคำขอไปที่ ${baseURL} (โมเดล: ${model})...`;
     }
 
     try {
@@ -1501,11 +1659,14 @@ function setupEventListeners() {
       if (Elements.drawers.apiVerifyBox) {
         Elements.drawers.apiVerifyBox.className = 'api-verify-box success';
         Elements.drawers.verifyHeaderRow.innerHTML = `<i class="fa-solid fa-circle-check"></i> <span id="verify-status-title">เชื่อมต่อสำเร็จ! (ความเร็ว: ${res.latencyMs} ms)</span>`;
-        Elements.drawers.verifyDetailText.innerHTML = `✅ <strong>DeepSeek ตอบกลับ:</strong> "${escapeHtml(res.reply)}" | <strong>โมเดล:</strong> ${escapeHtml(res.model)} | <strong>สถานะ:</strong> พร้อมใช้งาน 100%`;
+        Elements.drawers.verifyDetailText.innerHTML = `✅ <strong>AI ตอบกลับ:</strong> "${escapeHtml(res.reply)}" | <strong>โมเดล:</strong> ${escapeHtml(res.model)} | <strong>สถานะ:</strong> พร้อมใช้งาน 100%`;
       }
-      if (Elements.drawers.headerApiDot) Elements.drawers.headerApiDot.className = 'api-status-dot green';
+      if (Elements.drawers.headerApiDot) {
+        Elements.drawers.headerApiDot.className = 'api-status-dot green';
+        Elements.drawers.headerApiDot.title = `AI Model: ${model} (เชื่อมต่อแล้ว)`;
+      }
 
-      showToast(`เชื่อมต่อ DeepSeek API สำเร็จ (${res.latencyMs}ms)`, 'success');
+      showToast(`เชื่อมต่อโมเดล ${model} สำเร็จ (${res.latencyMs}ms)`, 'success');
 
       // Auto-save verified settings
       const settings = {
@@ -1521,13 +1682,13 @@ function setupEventListeners() {
       if (Elements.drawers.apiVerifyBox) {
         Elements.drawers.apiVerifyBox.className = 'api-verify-box error';
         Elements.drawers.verifyHeaderRow.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> <span id="verify-status-title">การเชื่อมต่อล้มเหลว! (Error)</span>`;
-        Elements.drawers.verifyDetailText.innerText = err.message || 'ไม่สามารถเชื่อมต่อกับ DeepSeek API ได้ กรุณาตรวจสอบ API Key หรืออินเทอร์เน็ต';
+        Elements.drawers.verifyDetailText.innerText = err.message || 'ไม่สามารถเชื่อมต่อกับ AI Provider ได้ กรุณาตรวจสอบ API Key, URL หรือโมเดล';
       }
       if (Elements.drawers.headerApiDot) Elements.drawers.headerApiDot.className = 'api-status-dot red';
       showToast('การเชื่อมต่อล้มเหลว: ' + err.message, 'error');
     } finally {
       Elements.drawers.btnTestApiKey.disabled = false;
-      Elements.drawers.btnTestApiKey.innerHTML = '<i class="fa-solid fa-bolt" style="color: var(--accent-amber);"></i> ทดสอบเชื่อมต่อ & ส่งข้อความ (Verify Key)';
+      Elements.drawers.btnTestApiKey.innerHTML = '<i class="fa-solid fa-bolt" style="color: var(--accent-amber);"></i> ทดสอบเชื่อมต่อโมเดล & ส่งข้อความ (Verify Connection)';
     }
   });
 
@@ -1544,8 +1705,9 @@ function setupEventListeners() {
       await API.saveSettings(settings);
       if (Elements.drawers.headerApiDot) {
         Elements.drawers.headerApiDot.className = settings.apiKey ? 'api-status-dot green' : 'api-status-dot red';
+        Elements.drawers.headerApiDot.title = settings.apiKey ? `AI Model: ${settings.model}` : 'ยังไม่ได้ตั้งค่า API Key';
       }
-      showToast('บันทึกการตั้งค่า DeepSeek สำเร็จ', 'success');
+      showToast(`บันทึกการตั้งค่าโมเดล ${settings.model} สำเร็จ`, 'success');
       closeDrawer('drawer-settings');
     } catch (err) {
       showToast('บันทึกการตั้งค่าไม่สำเร็จ: ' + err.message, 'error');

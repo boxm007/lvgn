@@ -280,7 +280,13 @@ app.post('/api/settings', (req, res) => {
   }
 });
 
-// --- Verify & Test API Key Connection ---
+// --- Verify & Test API Key Connection (DeepSeek / Qwen / OpenRouter / SiliconFlow) ---
+function getChatCompletionsUrl(rawBaseURL) {
+  let url = (rawBaseURL || 'https://api.deepseek.com').trim().replace(/\/+$/, '');
+  if (url.endsWith('/chat/completions')) return url;
+  return `${url}/chat/completions`;
+}
+
 app.post('/api/settings/verify', async (req, res) => {
   try {
     const { apiKey, baseURL, model } = req.body;
@@ -288,11 +294,11 @@ app.post('/api/settings/verify', async (req, res) => {
       return res.status(400).json({ success: false, error: 'กรุณากรอก API Key ก่อนทดสอบ' });
     }
 
-    const cleanBaseURL = (baseURL || 'https://api.deepseek.com').replace(/\/+$/, '');
-    const cleanModel = model || 'deepseek-chat';
+    const endpoint = getChatCompletionsUrl(baseURL);
+    const cleanModel = (model || 'deepseek-chat').trim();
     const startTime = Date.now();
 
-    const response = await fetch(`${cleanBaseURL}/chat/completions`, {
+    const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -301,7 +307,7 @@ app.post('/api/settings/verify', async (req, res) => {
       body: JSON.stringify({
         model: cleanModel,
         messages: [{ role: 'user', content: 'ตอบว่า "OK" สั้นๆ เพื่อทดสอบระบบ' }],
-        max_tokens: 15,
+        max_tokens: 20,
         temperature: 0.1
       })
     });
@@ -317,13 +323,13 @@ app.post('/api/settings/verify', async (req, res) => {
       } catch (e) {}
       return res.status(response.status).json({
         success: false,
-        error: `DeepSeek Error (${response.status}): ${parsedErr}`,
+        error: `AI Provider Error (${response.status}): ${parsedErr}`,
         latencyMs
       });
     }
 
     const data = await response.json();
-    const reply = data.choices && data.choices[0] ? data.choices[0].message.content : 'OK';
+    const reply = data.choices && data.choices[0] ? (data.choices[0].message?.content || 'OK') : 'OK';
 
     res.json({
       success: true,

@@ -1639,6 +1639,66 @@ a {
   color: var(--text-dim);
 }
 
+/* AI PROVIDER CHIPS GRID */
+.provider-chips-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-top: 4px;
+}
+
+@media (max-width: 480px) {
+  .provider-chips-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.btn-provider-chip {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-provider-chip:hover {
+  background: var(--bg-elevated);
+  color: var(--text-main);
+  border-color: var(--border-subtle);
+}
+
+.btn-provider-chip.active {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: var(--primary);
+  color: #ffffff;
+  box-shadow: 0 2px 10px rgba(59, 130, 246, 0.25);
+}
+
+.btn-provider-chip.active[data-provider="qwen"] {
+  background: rgba(139, 92, 246, 0.12);
+  border-color: #8b5cf6;
+  box-shadow: 0 2px 10px rgba(139, 92, 246, 0.25);
+}
+
+.btn-provider-chip.active[data-provider="openrouter"] {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: #10b981;
+  box-shadow: 0 2px 10px rgba(16, 185, 129, 0.25);
+}
+
+.btn-provider-chip.active[data-provider="siliconflow"] {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: #f59e0b;
+  box-shadow: 0 2px 10px rgba(245, 158, 11, 0.25);
+}
+
 .form-grid-2 {
   display: grid;
   grid-template-columns: repeat(2, 1fr);

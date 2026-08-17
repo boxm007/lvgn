@@ -350,27 +350,102 @@
       </div>
     </div>
 
-    <!-- DRAWER 4: DEEPSEEK SETTINGS & API VERIFICATION -->
+    <!-- DRAWER 4: AI BRAIN SETTINGS & API VERIFICATION (DEEPSEEK & QWEN) -->
     <div id="drawer-settings" class="side-drawer">
       <div class="drawer-overlay" data-close="drawer-settings"></div>
       <div class="drawer-panel">
         <div class="drawer-header">
           <div class="drawer-title">
-            <i class="fa-solid fa-sliders"></i>
-            <span>ตั้งค่า DeepSeek & ความเร็ว</span>
+            <i class="fa-solid fa-brain" style="color: var(--accent-amber);"></i>
+            <span>ตั้งค่า AI Brain (DeepSeek & Qwen)</span>
           </div>
           <button class="drawer-close-btn" data-close="drawer-settings">&times;</button>
         </div>
         <div class="drawer-body">
+
+          <!-- 1. PROVIDER QUICK SELECTOR -->
           <div class="form-group">
-            <label>DeepSeek API Key</label>
+            <label><i class="fa-solid fa-server"></i> เลือกค่าย AI (AI Provider / Ecosystem)</label>
+            <div class="provider-chips-grid" id="provider-chips-container">
+              <button type="button" class="btn-provider-chip active" data-provider="deepseek">
+                <i class="fa-solid fa-water" style="color: #3b82f6;"></i>
+                <span>DeepSeek Official</span>
+              </button>
+              <button type="button" class="btn-provider-chip" data-provider="qwen">
+                <i class="fa-solid fa-cloud" style="color: #8b5cf6;"></i>
+                <span>Qwen (DashScope)</span>
+              </button>
+              <button type="button" class="btn-provider-chip" data-provider="openrouter">
+                <i class="fa-solid fa-network-wired" style="color: #10b981;"></i>
+                <span>OpenRouter</span>
+              </button>
+              <button type="button" class="btn-provider-chip" data-provider="siliconflow">
+                <i class="fa-solid fa-bolt" style="color: #f59e0b;"></i>
+                <span>SiliconFlow</span>
+              </button>
+              <button type="button" class="btn-provider-chip" data-provider="custom">
+                <i class="fa-solid fa-gear" style="color: #94a3b8;"></i>
+                <span>Custom Endpoint</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 2. MODEL PRESET SELECTOR & INPUT -->
+          <div class="form-group">
+            <label><i class="fa-solid fa-microchip"></i> เลือกโมเดล AI ที่ใช้เป็นสมอง (AI Brain Model)</label>
+            <select id="select-model-preset" class="form-select" style="margin-bottom: 8px;">
+              <!-- Optgroup 1: DeepSeek Models -->
+              <optgroup label="🐋 DeepSeek Official Models">
+                <option value="deepseek-chat" selected>⚡ DeepSeek-V3 (deepseek-chat — แนะนำ / เร็วและวรรณกรรมลื่นไหล)</option>
+                <option value="deepseek-reasoner">🧠 DeepSeek-R1 (deepseek-reasoner — คิดวิเคราะห์เหตุผลขั้นสูงสุด / Reasoner)</option>
+                <option value="deepseek/deepseek-chat-v4-pro">👑 DeepSeek V4 Pro (deepseek-v4-pro)</option>
+                <option value="deepseek/deepseek-chat-v4-flash">⚡ DeepSeek V4 Flash (deepseek-v4-flash — ตอบไวประหยัดโทเค็น)</option>
+                <option value="deepseek-v3">📖 DeepSeek-V3 (deepseek-v3)</option>
+              </optgroup>
+
+              <!-- Optgroup 2: Qwen (Alibaba / Tongyi Qianwen) Models -->
+              <optgroup label="🌌 Qwen Models (Alibaba / DashScope)">
+                <option value="qwen-max">👑 Qwen Max (qwen-max — เรือธง สมองฉลาดขั้นสูงสุด มิติอารมณ์ลึกซึ้ง)</option>
+                <option value="qwen-plus">⚖️ Qwen Plus (qwen-plus — สมดุล ประสิทธิภาพสูง ตอบเร็ว)</option>
+                <option value="qwen-turbo">⚡ Qwen Turbo (qwen-turbo — เร็วสายฟ้า ประหยัดโทเค็น)</option>
+                <option value="qwen-3.5-pro">🚀 Qwen 3.5 Pro (qwen-3.5-pro)</option>
+                <option value="qwen-2.5-72b-instruct">🧠 Qwen 2.5 72B Instruct (qwen-2.5-72b-instruct)</option>
+                <option value="qwen-2.5-32b-instruct">⚙️ Qwen 2.5 32B Instruct (qwen-2.5-32b-instruct)</option>
+                <option value="qwen-2.5-14b-instruct">⚡ Qwen 2.5 14B Instruct (qwen-2.5-14b-instruct)</option>
+                <option value="qwen-2.5-7b-instruct">⚡ Qwen 2.5 7B Instruct (qwen-2.5-7b-instruct)</option>
+                <option value="qwen-2.5-coder-32b-instruct">💻 Qwen 2.5 Coder 32B (qwen-2.5-coder-32b-instruct)</option>
+              </optgroup>
+
+              <!-- Optgroup 3: OpenRouter / Cloud All-in-One -->
+              <optgroup label="🌐 OpenRouter & SiliconFlow Models">
+                <option value="deepseek/deepseek-chat">🌐 OpenRouter: deepseek/deepseek-chat</option>
+                <option value="deepseek/deepseek-r1">🌐 OpenRouter: deepseek/deepseek-r1</option>
+                <option value="qwen/qwen-2.5-72b-instruct">🌐 OpenRouter: qwen/qwen-2.5-72b-instruct</option>
+                <option value="qwen/qwen-max">🌐 OpenRouter: qwen/qwen-max</option>
+                <option value="deepseek-ai/DeepSeek-V3">⚡ SiliconFlow: deepseek-ai/DeepSeek-V3</option>
+                <option value="deepseek-ai/DeepSeek-R1">⚡ SiliconFlow: deepseek-ai/DeepSeek-R1</option>
+                <option value="Qwen/Qwen2.5-72B-Instruct">⚡ SiliconFlow: Qwen/Qwen2.5-72B-Instruct</option>
+                <option value="Qwen/Qwen2.5-32B-Instruct">⚡ SiliconFlow: Qwen/Qwen2.5-32B-Instruct</option>
+                <option value="Qwen/Qwen2.5-7B-Instruct">⚡ SiliconFlow: Qwen/Qwen2.5-7B-Instruct</option>
+              </optgroup>
+
+              <option value="custom">✏️ พิมพ์ชื่อโมเดลเอง (Custom Model Name)</option>
+            </select>
+
+            <input type="text" id="input-model-name" class="form-input" value="deepseek-chat" placeholder="เช่น deepseek-chat, qwen-max, qwen-3.5-pro">
+            <span class="form-hint" id="model-hint-text">โมเดลที่เลือก: <code>deepseek-chat</code> (DeepSeek-V3)</span>
+          </div>
+
+          <!-- 3. API KEY & VERIFICATION -->
+          <div class="form-group">
+            <label><i class="fa-solid fa-key"></i> <span id="label-api-key">API Key</span></label>
             <div class="input-password-wrap">
-              <input type="password" id="input-api-key" class="form-input" placeholder="sk-..." autocomplete="off">
+              <input type="password" id="input-api-key" class="form-input" placeholder="sk-... (DeepSeek API Key)" autocomplete="off">
               <button id="btn-toggle-key-visibility" class="btn-eye" type="button"><i class="fa-solid fa-eye"></i></button>
             </div>
             
             <button id="btn-test-api-key" class="btn btn-secondary btn-sm" type="button" style="margin-top: 6px; align-self: flex-start;">
-              <i class="fa-solid fa-bolt" style="color: var(--accent-amber);"></i> ทดสอบเชื่อมต่อ & ส่งข้อความ (Verify Key)
+              <i class="fa-solid fa-bolt" style="color: var(--accent-amber);"></i> ทดสอบเชื่อมต่อโมเดล & ส่งข้อความ (Verify Connection)
             </button>
 
             <!-- LIVE VERIFICATION RESULT BOX (GREEN / RED) -->
@@ -382,12 +457,14 @@
             </div>
           </div>
 
+          <!-- 4. BASE URL -->
           <div class="form-group">
-            <label>DeepSeek Model</label>
-            <input type="text" id="input-model-name" class="form-input" value="deepseek-chat">
-            <span class="form-hint">ค่ามาตรฐาน: <code>deepseek-chat</code> (DeepSeek-V3 / Flash Speed)</span>
+            <label><i class="fa-solid fa-link"></i> API Base URL (OpenAI-Compatible Endpoint)</label>
+            <input type="text" id="input-base-url" class="form-input" value="https://api.deepseek.com">
+            <span class="form-hint" id="base-url-hint">สำหรับ DeepSeek: <code>https://api.deepseek.com</code> | สำหรับ Qwen: <code>https://dashscope-intl.aliyuncs.com/compatible-mode/v1</code></span>
           </div>
 
+          <!-- 5. TOKENS & TEMPERATURE -->
           <div class="form-group">
             <div class="flex-between">
               <label>Default Output Tokens: <span id="val-global-tokens" class="token-val-badge">500</span></label>
@@ -402,17 +479,12 @@
             <input type="range" id="input-temperature" min="0.0" max="1.5" step="0.05" value="0.85" class="form-range">
           </div>
 
-          <div class="form-group">
-            <label>API Base URL</label>
-            <input type="text" id="input-base-url" class="form-input" value="https://api.deepseek.com">
-          </div>
-
           <button id="btn-save-settings" class="btn btn-primary btn-full">
             <i class="fa-solid fa-check"></i> บันทึกการตั้งค่า
           </button>
           
           <div class="prompt-code-loc-box">
-            <h4><i class="fa-solid fa-code"></i> ตำแหน่งไฟล์แก้ไข Prompt อารมณ์:</h4>
+            <h4><i class="fa-solid fa-code"></i> ตำแหน่งไฟล์แก้ไข AI System Prompt:</h4>
             <code>server/prompts.js</code>
           </div>
         </div>
