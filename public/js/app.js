@@ -666,18 +666,22 @@ function formatProseContent(rawText, scene = null) {
     const day = sceneMatch[1].trim();
     const time = sceneMatch[2].trim();
     const loc = sceneMatch[3].trim();
-    sceneChipHtml = `<div class="scene-status-chip"><i class="fa-solid fa-location-dot"></i> วันที่ ${day} • ${time} • ${loc}</div>`;
+    sceneChipHtml = `<div class="scene-status-pill"><i class="fa-solid fa-location-dot"></i> วันที่ ${day} • ${time} • ${loc}</div>`;
     content = content.replace(sceneMatch[0], '').trim();
   } else if (scene) {
-    sceneChipHtml = `<div class="scene-status-chip"><i class="fa-solid fa-location-dot"></i> วันที่ ${scene.day || 1} • เวลา ${scene.time || '08:30'} น. • ${scene.location || 'จุดเริ่มต้น'}</div>`;
+    sceneChipHtml = `<div class="scene-status-pill"><i class="fa-solid fa-location-dot"></i> วันที่ ${scene.day || 1} • เวลา ${scene.time || '08:30'} น. • ${scene.location || 'จุดเริ่มต้น'}</div>`;
   }
 
   const paragraphs = content.split('\n\n').filter(p => p.trim());
   
   const bodyHtml = paragraphs.map(para => {
     let formatted = escapeHtml(para);
+    // Golden amber dialogue highlighting
     formatted = formatted.replace(/"([^"]+)"/g, '<span class="ai-dialogue">"$1"</span>');
     formatted = formatted.replace(/“([^”]+)”/g, '<span class="ai-dialogue">“$1”</span>');
+    formatted = formatted.replace(/‘([^’]+)’/g, '<span class="ai-dialogue">‘$1’</span>');
+    // Lilac thought/atmosphere highlighting for italicized text (*...*)
+    formatted = formatted.replace(/\*([^*]+)\*/g, '<span class="thought-text">*$1*</span>');
     return `<p>${formatted}</p>`;
   }).join('');
 
@@ -687,6 +691,7 @@ function formatProseContent(rawText, scene = null) {
 function createMessageElement(msg, isLast) {
   const item = document.createElement('div');
   item.className = `message-item ${msg.role === 'user' ? 'user-message' : 'ai-message'}`;
+  item.dataset.msgId = msg.id || ('msg_' + Date.now());
 
   if (msg.role === 'user') {
     const isDo = msg.type === 'Do';
@@ -697,11 +702,14 @@ function createMessageElement(msg, isLast) {
       </div>
     `;
   } else {
-    // AI Storyteller / Prologue Message
+    // AI Storyteller / Prologue Message (Khuiai Card Architecture)
+    const currentChar = AppState.activeCharacter || { name: 'Storyteller', avatar: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=600', short_desc: 'ผู้เล่าเรื่อง' };
+    
     let fateHtml = '';
     if (msg.fateResult && msg.fateResult.badgeText) {
       fateHtml = `
         <div class="fate-badge-card ${msg.fateResult.tier}">
+          <i class="fa-solid fa-dice-d20"></i>
           <span>${msg.fateResult.badgeText}</span>
         </div>
       `;
@@ -718,7 +726,7 @@ function createMessageElement(msg, isLast) {
     }
 
     let consequenceHtml = '';
-    if (msg.consequence && msg.consequence.consequence_summary && msg.consequence.consequence_summary !== 'การสนทนาดำเนินต่อไป') {
+    if (msg.consequence && msg.consequence.consequence_summary && msg.consequence.consequence_summary !== 'การสนทนาดำเนินต่อไป' && msg.consequence.consequence_summary !== 'การกระทำดำเนินต่อไปอย่างราบรื่น') {
       consequenceHtml = `
         <div class="consequence-alert-pill">
           <i class="fa-solid fa-sparkles"></i>
@@ -730,13 +738,54 @@ function createMessageElement(msg, isLast) {
     const formattedBody = formatProseContent(msg.content, msg.scene);
 
     item.innerHTML = `
-      ${prologueRibbon}
-      ${fateHtml}
-      <div class="ai-prose-bubble ${msg.is_prologue ? 'is-prologue-card' : ''}">
-        ${formattedBody}
-        ${consequenceHtml}
+      <div class="ai-message-card ${msg.is_prologue ? 'is-prologue-card' : ''}">
+        
+        <!-- CARD HEADER (Avatar + Actions) -->
+        <div class="ai-card-header">
+          <div class="char-info-group">
+            <img class="ai-avatar" src="${currentChar.avatar || 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=600'}" alt="${escapeHtml(currentChar.name)}">
+            <div class="char-meta-text">
+              <span class="char-name-label">${escapeHtml(currentChar.name)}</span>
+              <span class="char-role-label">${escapeHtml(currentChar.short_desc || 'ตัวละครหลัก')}</span>
+            </div>
+          </div>
+
+          <!-- MESSAGE ACTIONS TOOLBAR -->
+          <div class="message-actions">
+            <button class="action-icon-btn btn-copy-msg" title="คัดลอกบทบรรยาย"><i class="fa-solid fa-copy"></i></button>
+            ${isLast ? `<button class="action-icon-btn btn-regen-msg" title="รีเจนใหม่ (Regenerate)"><i class="fa-solid fa-arrows-rotate"></i></button>` : ''}
+          </div>
+        </div>
+
+        ${prologueRibbon}
+        ${fateHtml}
+
+        <!-- NOVEL PROSE BODY -->
+        <div class="ai-prose-bubble">
+          ${formattedBody}
+          ${consequenceHtml}
+        </div>
       </div>
     `;
+
+    // Event listener for copy button
+    const copyBtn = item.querySelector('.btn-copy-msg');
+    if (copyBtn) {
+      copyBtn.addEventListener('click', () => {
+        const textToCopy = msg.content.replace(/📍\s*\*\*\[[^\]]+\]\*\*/g, '').trim();
+        navigator.clipboard.writeText(textToCopy).then(() => {
+          showNotification('คัดลอกบทบรรยายแล้ว', 'success');
+        });
+      });
+    }
+
+    // Event listener for regen button
+    const regenBtn = item.querySelector('.btn-regen-msg');
+    if (regenBtn) {
+      regenBtn.addEventListener('click', () => {
+        handleRegenerateNarration();
+      });
+    }
   }
 
   return item;

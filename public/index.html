@@ -392,13 +392,16 @@
 
           <!-- 2. MODEL PRESET SELECTOR & INPUT -->
           <div class="form-group">
-            <label><i class="fa-solid fa-microchip"></i> เลือกโมเดล AI ที่ใช้เป็นสมอง (AI Brain Model)</label>
+            <label><i class="fa-solid fa-feather-pointed" style="color: var(--primary);"></i> เลือกโมเดล AI สำหรับผู้เล่าเรื่อง (Storyteller Model)</label>
+            <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px; line-height: 1.5; background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.25); padding: 8px 12px; border-radius: var(--radius-sm);">
+              ⚡ <strong>ระบบ Dual-Model:</strong> หลังบ้าน (วิเคราะห์การกระทำ & ทอยเต๋า D20) ทำงานรวดเร็วด้วย <code>deepseek-v4-flash</code> ส่วนโมเดลที่คุณเลือกด้านล่างนี้จะถูกใช้เป็น <strong>Master Storyteller</strong> เพื่อสร้างบทบรรยายวรรณกรรมนิยายคุณภาพสูงสุด
+            </div>
             <select id="select-model-preset" class="form-select" style="margin-bottom: 8px;">
               <!-- Optgroup 1: DeepSeek Models -->
               <optgroup label="🐋 DeepSeek Official Models">
-                <option value="deepseek-chat" selected>⚡ DeepSeek-V3 (deepseek-chat — แนะนำ / เร็วและวรรณกรรมลื่นไหล)</option>
+                <option value="deepseek-v4-pro" selected>👑 DeepSeek V4 Pro (deepseek-v4-pro — แนะนำสูงสุด / วรรณกรรมระดับมาสเตอร์พีซ)</option>
+                <option value="deepseek-chat">⚡ DeepSeek-V3 (deepseek-chat — เร็วและวรรณกรรมลื่นไหล)</option>
                 <option value="deepseek-reasoner">🧠 DeepSeek-R1 (deepseek-reasoner — คิดวิเคราะห์เหตุผลขั้นสูงสุด / Reasoner)</option>
-                <option value="deepseek-v4-pro">👑 DeepSeek V4 Pro (deepseek-v4-pro)</option>
                 <option value="deepseek-v4-flash">⚡ DeepSeek V4 Flash (deepseek-v4-flash — ตอบไวประหยัดโทเค็น)</option>
                 <option value="deepseek-v3">📖 DeepSeek-V3 (deepseek-v3)</option>
               </optgroup>
@@ -432,8 +435,8 @@
               <option value="custom">✏️ พิมพ์ชื่อโมเดลเอง (Custom Model Name)</option>
             </select>
 
-            <input type="text" id="input-model-name" class="form-input" value="deepseek-chat" placeholder="เช่น deepseek-chat, qwen-max, qwen-3.5-pro">
-            <span class="form-hint" id="model-hint-text">โมเดลที่เลือก: <code>deepseek-chat</code> (DeepSeek-V3)</span>
+            <input type="text" id="input-model-name" class="form-input" value="deepseek-v4-pro" placeholder="เช่น deepseek-v4-pro, qwen-max, deepseek-chat">
+            <span class="form-hint" id="model-hint-text">โมเดลผู้เล่าเรื่อง: <code>deepseek-v4-pro</code></span>
           </div>
 
           <!-- 3. API KEY & VERIFICATION -->

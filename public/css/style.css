@@ -1,42 +1,47 @@
 /**
- * LONG VOYAGE — KHUIAI STYLE THEME & UI STYLESHEET
- * Premium Obsidian Dark Theme, Glassmorphism, Thai Typography, NPC Discovery, Fast Response Controls
+ * LONG VOYAGE — KHUIAI & CHUB.AI DARK VIOLET OBSIDIAN THEME
+ * Premium Glassmorphism, Thai Typography, Dialogue Highlighting, NPC Discovery, Fast Storyteller Controls
  */
 
 :root {
-  /* Color Palette */
-  --bg-base: #0a0d14;
-  --bg-surface: #111622;
-  --bg-card: #161d2d;
-  --bg-card-hover: #1c253a;
-  --bg-glass: rgba(18, 24, 38, 0.75);
-  --bg-glass-heavy: rgba(13, 17, 27, 0.92);
+  /* Core Obsidian & Deep Violet Surfaces (Khuiai / Chub.ai Palette) */
+  --bg-base: #090714;
+  --bg-surface: #100c22;
+  --bg-card: rgba(22, 17, 43, 0.72);
+  --bg-card-hover: rgba(33, 25, 64, 0.88);
+  --bg-glass: rgba(18, 14, 36, 0.75);
+  --bg-glass-heavy: rgba(12, 9, 26, 0.94);
 
-  --border-subtle: rgba(255, 255, 255, 0.08);
-  --border-card: #222d42;
-  --border-active: #3b82f6;
+  --border-subtle: rgba(168, 85, 247, 0.14);
+  --border-card: #271e4d;
+  --border-active: #a855f7;
 
-  --text-main: #f1f5f9;
+  --text-main: #f8fafc;
+  --text-prose: #e2e8f0;
+  --text-dialogue: #fde047;   /* Golden Amber for Spoken Dialogue in "..." */
+  --text-thought: #c084fc;    /* Soft Lilac for Thoughts and Atmosphere */
   --text-muted: #94a3b8;
   --text-dim: #64748b;
 
-  --primary: #3b82f6;
-  --primary-hover: #2563eb;
-  --primary-glow: rgba(59, 130, 246, 0.25);
+  --primary: #8b5cf6;
+  --primary-hover: #7c3aed;
+  --primary-glow: rgba(139, 92, 246, 0.35);
 
   --accent-amber: #f59e0b;
   --accent-rose: #f43f5e;
   --accent-emerald: #10b981;
-  --accent-purple: #8b5cf6;
+  --accent-purple: #c084fc;
+  --accent-cyan: #06b6d4;
+  --accent-fuchsia: #d946ef;
 
   --font-main: 'Prompt', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 18px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
   --radius-full: 9999px;
 
-  --shadow-card: 0 8px 24px -6px rgba(0, 0, 0, 0.45);
-  --shadow-floating: 0 12px 32px -4px rgba(0, 0, 0, 0.6);
+  --shadow-card: 0 10px 30px -5px rgba(0, 0, 0, 0.7), 0 0 20px rgba(139, 92, 246, 0.12);
+  --shadow-floating: 0 16px 40px -6px rgba(0, 0, 0, 0.85);
   --transition-normal: 0.22s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -57,7 +62,7 @@ html, body {
   color: var(--text-main);
   font-family: var(--font-main);
   font-size: 15px;
-  line-height: 1.6;
+  line-height: 1.65;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -89,7 +94,10 @@ a {
   width: 100vw;
   overflow: hidden;
   position: relative;
-  background: radial-gradient(circle at top right, #131d33 0%, #0a0d14 60%);
+  background: radial-gradient(circle at 15% 15%, rgba(139, 92, 246, 0.15) 0%, transparent 55%),
+              radial-gradient(circle at 85% 85%, rgba(217, 70, 239, 0.1) 0%, transparent 60%),
+              radial-gradient(circle at 50% 50%, rgba(6, 182, 212, 0.04) 0%, transparent 65%),
+              var(--bg-base);
 }
 
 /* ==========================================================================
@@ -798,27 +806,30 @@ a {
 /* User Message */
 .message-item.user-message {
   align-self: flex-end;
-  max-width: 85%;
+  max-width: 82%;
 }
 
 .user-bubble {
-  background: #1e3a8a;
+  background: linear-gradient(135deg, #3b0764 0%, #1e1b4b 50%, #2e1065 100%);
+  border: 1px solid rgba(168, 85, 247, 0.35);
   color: #ffffff;
-  padding: 12px 16px;
+  padding: 14px 20px;
   border-radius: var(--radius-lg) var(--radius-lg) 4px var(--radius-lg);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-  font-size: 14.5px;
-  line-height: 1.6;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  font-size: 15px;
+  line-height: 1.65;
 }
 
 .user-tag-pill {
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.5px;
-  padding: 2px 6px;
-  border-radius: var(--radius-sm);
-  background: rgba(0, 0, 0, 0.3);
-  margin-bottom: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: rgba(0, 0, 0, 0.4);
+  color: var(--primary);
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  margin-bottom: 6px;
   display: inline-block;
 }
 
@@ -826,6 +837,103 @@ a {
 .message-item.ai-message {
   align-self: flex-start;
   width: 100%;
+}
+
+/* AI Message Card with Header & Toolbar (Khuiai Style) */
+.ai-message-card {
+  background: var(--bg-card);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 22px 26px;
+  box-shadow: var(--shadow-card);
+  transition: border-color var(--transition-normal), box-shadow var(--transition-normal);
+}
+
+.ai-message-card:hover {
+  border-color: rgba(168, 85, 247, 0.3);
+  box-shadow: var(--shadow-card), 0 0 20px rgba(168, 85, 247, 0.18);
+}
+
+.ai-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 14px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.char-info-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ai-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-full);
+  border: 2px solid var(--primary);
+  object-fit: cover;
+  box-shadow: 0 0 12px rgba(139, 92, 246, 0.4);
+}
+
+.char-meta-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.char-name-label {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--text-main);
+  letter-spacing: 0.3px;
+}
+
+.char-role-label {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Message Actions (Swipe, Edit, Branch) */
+.message-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.action-icon-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all var(--transition-normal);
+}
+
+.action-icon-btn:hover {
+  background: rgba(168, 85, 247, 0.2);
+  color: #fff;
+  border-color: var(--primary);
+}
+
+/* Scene Status Badge */
+.scene-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(168, 85, 247, 0.14);
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  color: #e9d5ff;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 5px 14px;
+  border-radius: var(--radius-full);
+  margin-bottom: 16px;
 }
 
 /* Prologue Ribbon */
@@ -851,65 +959,61 @@ a {
   gap: 8px;
   padding: 6px 14px;
   border-radius: var(--radius-full);
-  background: var(--bg-card);
+  background: var(--bg-surface);
   border: 1px solid var(--border-card);
   font-size: 12.5px;
   font-weight: 600;
-  margin-bottom: 6px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  margin-bottom: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .fate-badge-card.critical_success {
   border-color: #f59e0b;
   color: #fbbf24;
-  background: rgba(245, 158, 11, 0.12);
+  background: rgba(245, 158, 11, 0.15);
 }
 
 .fate-badge-card.success {
   border-color: #10b981;
   color: #34d399;
-  background: rgba(16, 185, 129, 0.1);
+  background: rgba(16, 185, 129, 0.12);
 }
 
 .fate-badge-card.failure {
   border-color: #f97316;
   color: #fb923c;
-  background: rgba(249, 115, 22, 0.1);
+  background: rgba(249, 115, 22, 0.12);
 }
 
 .fate-badge-card.critical_failure {
   border-color: #ef4444;
   color: #f87171;
-  background: rgba(239, 68, 68, 0.12);
+  background: rgba(239, 68, 68, 0.15);
 }
 
 .ai-prose-bubble {
-  background: var(--bg-card);
-  border: 1px solid var(--border-card);
-  padding: 18px 22px;
-  border-radius: 4px var(--radius-lg) var(--radius-lg) var(--radius-lg);
-  box-shadow: var(--shadow-card);
-  font-size: 15px;
-  line-height: 1.8;
-  color: #e2e8f0;
-}
-
-.ai-prose-bubble.is-prologue-card {
-  border-left: 4px solid var(--accent-amber);
-  background: linear-gradient(135deg, rgba(22, 29, 45, 0.95), rgba(16, 22, 34, 0.95));
+  font-size: 15.5px;
+  line-height: 1.85;
+  color: var(--text-prose);
 }
 
 .ai-prose-bubble p {
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 
 .ai-prose-bubble p:last-child {
   margin-bottom: 0;
 }
 
-.ai-dialogue {
-  color: #fde047;
+.ai-dialogue, .dialogue-text {
+  color: var(--text-dialogue);
   font-weight: 500;
+  text-shadow: 0 0 10px rgba(253, 224, 71, 0.18);
+}
+
+.thought-text {
+  color: var(--text-thought);
+  font-style: italic;
 }
 
 .consequence-alert-pill {
@@ -930,9 +1034,9 @@ a {
    NPC DISCOVERY CARD (DYNAMIC PROMPT TO REMEMBER)
    ========================================================================== */
 .npc-discovery-card {
-  background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.95));
-  border: 1px solid var(--accent-amber);
-  box-shadow: 0 4px 20px rgba(245, 158, 11, 0.15);
+  background: linear-gradient(135deg, rgba(30, 20, 55, 0.95), rgba(15, 12, 30, 0.95));
+  border: 1px solid var(--primary);
+  box-shadow: 0 4px 20px rgba(139, 92, 246, 0.25);
   border-radius: var(--radius-md);
   padding: 14px 16px;
   margin-top: 10px;
@@ -952,7 +1056,7 @@ a {
   align-items: center;
   gap: 8px;
   font-size: 13.5px;
-  color: var(--accent-amber);
+  color: var(--accent-purple);
   font-weight: 600;
 }
 
@@ -973,8 +1077,8 @@ a {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: rgba(245, 158, 11, 0.08);
-  border: 1px solid rgba(245, 158, 11, 0.3);
+  background: rgba(139, 92, 246, 0.08);
+  border: 1px solid rgba(139, 92, 246, 0.3);
   padding: 8px 12px;
   border-radius: var(--radius-sm);
   font-size: 12.5px;
@@ -987,7 +1091,7 @@ a {
   gap: 12px;
   background: var(--bg-card);
   border: 1px solid var(--border-card);
-  padding: 10px 16px;
+  padding: 10px 18px;
   border-radius: var(--radius-full);
   align-self: flex-start;
   font-size: 13px;
@@ -1031,7 +1135,7 @@ a {
   flex-direction: column;
   gap: 8px;
   z-index: 40;
-  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.5);
 }
 
 /* FLOATING TYPE BUTTON (Mobile Quick-Summon) */
@@ -1041,13 +1145,13 @@ a {
   bottom: 120px;
   right: 18px;
   z-index: 45;
-  background: linear-gradient(135deg, var(--primary), #1d4ed8);
+  background: linear-gradient(135deg, var(--primary), #6d28d9);
   color: #ffffff;
   border-radius: var(--radius-full);
   padding: 10px 18px;
   font-size: 13.5px;
   font-weight: 600;
-  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.6);
+  box-shadow: 0 4px 20px rgba(139, 92, 246, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.25);
   align-items: center;
   gap: 8px;

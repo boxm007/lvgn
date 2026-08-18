@@ -51,12 +51,15 @@ function normalizeModelName(rawModel, rawBaseURL = '') {
 
 /**
  * Call AI Brain API (DeepSeek / Qwen / OpenRouter / SiliconFlow / OpenAI Compatible)
+ * Supports dual-model architecture: Fast backend referee brain (deepseek-v4-flash) & High-literary Storyteller
  */
-async function callDeepSeek({ messages, temperature = 0.85, max_tokens = 500, response_format = null }) {
+async function callDeepSeek({ messages, temperature = 0.85, max_tokens = 500, response_format = null, overrideModel = null }) {
   const settings = db.getSettings();
   const apiKey = settings.apiKey || config.deepseek.apiKey;
   const baseURL = settings.baseURL || config.deepseek.baseURL;
-  const rawModel = settings.model || config.deepseek.model || 'deepseek-chat';
+  
+  // Dual-model resolution: Use overrideModel if provided, else user's storyteller model, else default
+  const rawModel = overrideModel || settings.storytellerModel || settings.model || config.deepseek.model || 'deepseek-v4-pro';
   const model = normalizeModelName(rawModel, baseURL);
 
   const body = {
@@ -109,6 +112,18 @@ async function callDeepSeek({ messages, temperature = 0.85, max_tokens = 500, re
   }
 
   throw lastErr;
+}
+
+/**
+ * Call Fast Backend Referee Brain (Always uses deepseek-v4-flash or fast model)
+ */
+async function callFastRefereeBrain(options) {
+  const settings = db.getSettings();
+  const fastModel = settings.refereeModel || 'deepseek-v4-flash';
+  return callDeepSeek({
+    ...options,
+    overrideModel: fastModel
+  });
 }
 
 /**
@@ -210,7 +225,7 @@ async function executeTurnPipeline({ slotId, playerInput, customRoll = null }) {
 
   const settings = db.getSettings();
   const stylePreset = slot.style_preset || {};
-  const maxStoryTokens = parseInt(stylePreset.max_response_tokens || settings.maxTokens || 500, 10);
+  const maxStoryTokens = parseInt(stylePreset.max_response_tokens || settings.max_story_tokens || settings.maxTokens || 1200, 10);
 
   // ==========================================
   // STAGE 1 & 2: DETERMINISTIC MECHANICAL GM & FATE ENGINE (0ms)
