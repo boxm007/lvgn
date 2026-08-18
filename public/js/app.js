@@ -15,6 +15,8 @@ const State = {
   enableDice: true,
   isLoadingTurn: false
 };
+window.State = State;
+window.AppState = State;
 
 // 6 Official Style Mode Presets from `prompt ai/ai3_storyteller-1.md`
 const PRESET_TEMPLATES = {
@@ -703,7 +705,7 @@ function createMessageElement(msg, isLast) {
     `;
   } else {
     // AI Storyteller / Prologue Message (Khuiai Card Architecture)
-    const currentChar = AppState.activeCharacter || { name: 'Storyteller', avatar: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=600', short_desc: 'ผู้เล่าเรื่อง' };
+    const currentChar = State.activeCharacter || (State.activeSlot ? State.characters.find(c => c.id === State.activeSlot.character_id) : null) || { name: 'Storyteller', avatar: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=600', short_desc: 'ผู้เล่าเรื่อง' };
     
     let fateHtml = '';
     if (msg.fateResult && msg.fateResult.badgeText) {
