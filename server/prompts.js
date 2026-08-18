@@ -246,6 +246,16 @@ function getStorytellerUserPrompt(turnData) {
   const directives = consequence?.narrative_directives || {};
   const currentScene = scene || character.dynamic_state?.scene || { day: 1, time: "08:30", location: world.name || "จุดเริ่มต้น" };
 
+  let companionGuidance = '';
+  if (character.id === 'char_ren_akiyama' || (character.name && character.name.includes('เรน'))) {
+    companionGuidance = `
+[IMMEDIATE ACTIVE SCENE COMPANION — บิลลี่ อิจิกะ (Billy Ichika)]
+- บิลลี่ อิจิกะ (Billy Ichika) คือเพื่อนสนิทคนสำคัญที่สุดของเรน (ผู้เล่น) ทั้งคู่ไม่มี Will เหมือนกัน บิลลี่สวมแว่นช่างกลและทดสอบชุดเกราะแขนกล Combat Exoskeleton อยู่ข้างๆ เรนเสมอ
+- เมื่อผู้เล่น (เรน) พูด ทักทาย ถาม หรือกระทำสิ่งใด ให้ บิลลี่ อิจิกะ (และตัวละครอื่นในฉาก เช่น อินะ, เท็ตโช) มีบทสนทนาโต้ตอบ และมีปฏิกิริยาต่อเรนอย่างมีชีวิตชีวา ห้ามปล่อยให้ฉากว่างเปล่า!
+- บุคลิกบิลลี่: กระตือรือร้น, ชอบพูดศัพท์เทคนิค/วิศวกรรม, ไม่ยอมแพ้, เรียกเรนอย่างเป็นกันเอง ("ไง เรน", "ดูนี่สิ", "คนไม่มี Will อย่างพวกเรา...")
+`;
+  }
+
   return `[RUNTIME SCENE CONTEXT]
 📍 **[ วันที่ ${currentScene.day} | เวลา ${currentScene.time} น. | สถานที่: ${currentScene.location} ]**
 
@@ -277,14 +287,14 @@ ${historyText || 'ไม่มี (เพิ่งเริ่มเทิร์
 [LATEST PLAYER INPUT]
 Action Type: [${playerInput.type}]
 Player's Action / Dialogue: "${playerInput.text}"
-
+${companionGuidance}
 ${customInstructions ? `[คำสั่งพิเศษเพิ่มเติม]: ${customInstructions}\n` : ''}
 [MANDATORY GENERATION DIRECTIVE — DEPTH 1 ENFORCER]
 จงเขียนบทบรรยายวรรณกรรมภาษาไทยไลท์โนเวลความยาว 3-5 ย่อหน้าที่เข้มข้น ลึกซึ้ง และมีชีวิตชีวา (800-1500 tokens)
 - บรรทัดแรกสุดต้องเป็น: 📍 **[ วันที่ ${currentScene.day} | เวลา ${currentScene.time} น. | สถานที่: ${currentScene.location} ]**
 - เว้น 1 บรรทัดว่าง แล้วเริ่มร้อยแก้วที่มีรายละเอียด 5 สัมผัสครบถ้วน
 - ไฮไลต์บทสนทนาในเครื่องหมาย “...” และใส่ Action Beat คั่นบทพูด
-- สะท้อนบุคลิกเฉพาะตัวของตัวละครอย่างสมจริง และจบด้วย Narrative Hook ที่เปิดโอกาสให้ผู้เล่นตอบสนอง!`;
+- สะท้อนบุคลิกเฉพาะตัวของตัวละครอย่างสมจริง โดยเฉพาะ บิลลี่ อิจิกะ ที่อยู่ข้างๆ เรน และจบด้วย Narrative Hook ที่เปิดโอกาสให้ผู้เล่นตอบสนอง!`;
 }
 
 // ==========================================
@@ -414,6 +424,7 @@ module.exports = {
   getStorytellerSystemPrompt,
   getStorytellerUserPrompt,
   getMemoryWriterPrompt,
+  getMemorySummaryPrompt: getMemoryWriterPrompt,
   getWorldbookAnalyzerPrompt,
   NARRATIVE_MODES_GUIDE
 };

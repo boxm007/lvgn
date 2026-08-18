@@ -704,9 +704,7 @@ function createMessageElement(msg, isLast) {
       </div>
     `;
   } else {
-    // AI Storyteller / Prologue Message (Khuiai Card Architecture)
-    const currentChar = State.activeCharacter || (State.activeSlot ? State.characters.find(c => c.id === State.activeSlot.character_id) : null) || { name: 'Storyteller', avatar: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=600', short_desc: 'ผู้เล่าเรื่อง' };
-    
+    // AI Storyteller / Prologue Message (Clean & Immersive Novel Prose Layout)
     let fateHtml = '';
     if (msg.fateResult && msg.fateResult.badgeText) {
       fateHtml = `
@@ -740,54 +738,13 @@ function createMessageElement(msg, isLast) {
     const formattedBody = formatProseContent(msg.content, msg.scene);
 
     item.innerHTML = `
-      <div class="ai-message-card ${msg.is_prologue ? 'is-prologue-card' : ''}">
-        
-        <!-- CARD HEADER (Avatar + Actions) -->
-        <div class="ai-card-header">
-          <div class="char-info-group">
-            <img class="ai-avatar" src="${currentChar.avatar || 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=600'}" alt="${escapeHtml(currentChar.name)}">
-            <div class="char-meta-text">
-              <span class="char-name-label">${escapeHtml(currentChar.name)}</span>
-              <span class="char-role-label">${escapeHtml(currentChar.short_desc || 'ตัวละครหลัก')}</span>
-            </div>
-          </div>
-
-          <!-- MESSAGE ACTIONS TOOLBAR -->
-          <div class="message-actions">
-            <button class="action-icon-btn btn-copy-msg" title="คัดลอกบทบรรยาย"><i class="fa-solid fa-copy"></i></button>
-            ${isLast ? `<button class="action-icon-btn btn-regen-msg" title="รีเจนใหม่ (Regenerate)"><i class="fa-solid fa-arrows-rotate"></i></button>` : ''}
-          </div>
-        </div>
-
-        ${prologueRibbon}
-        ${fateHtml}
-
-        <!-- NOVEL PROSE BODY -->
-        <div class="ai-prose-bubble">
-          ${formattedBody}
-          ${consequenceHtml}
-        </div>
+      ${prologueRibbon}
+      ${fateHtml}
+      <div class="ai-prose-bubble ${msg.is_prologue ? 'is-prologue-card' : ''}">
+        ${formattedBody}
+        ${consequenceHtml}
       </div>
     `;
-
-    // Event listener for copy button
-    const copyBtn = item.querySelector('.btn-copy-msg');
-    if (copyBtn) {
-      copyBtn.addEventListener('click', () => {
-        const textToCopy = msg.content.replace(/📍\s*\*\*\[[^\]]+\]\*\*/g, '').trim();
-        navigator.clipboard.writeText(textToCopy).then(() => {
-          showNotification('คัดลอกบทบรรยายแล้ว', 'success');
-        });
-      });
-    }
-
-    // Event listener for regen button
-    const regenBtn = item.querySelector('.btn-regen-msg');
-    if (regenBtn) {
-      regenBtn.addEventListener('click', () => {
-        handleRegenerateNarration();
-      });
-    }
   }
 
   return item;
