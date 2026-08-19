@@ -1,15 +1,21 @@
 const config = require('./config');
 const db = require('./db');
 const FateEngine = require('./fateEngine');
+const MemoryEngine = require('./memoryEngine');
+const LorebookEngine = require('./lorebookEngine');
 const {
   getContextExtractorPrompt,
   getReasoningPrompt,
   getStorytellerSystemPrompt,
   getStorytellerUserPrompt,
+  getFactAndMemoryExtractorPrompt,
   getMemorySummaryPrompt,
   getWorldbookAnalyzerPrompt,
   getPrologueGeneratorPrompt
 } = require('./prompts');
+
+const memoryEngine = new MemoryEngine();
+const lorebookEngine = new LorebookEngine();
 
 function getChatCompletionsUrl(rawBaseURL) {
   let url = (rawBaseURL || 'https://api.deepseek.com').trim().replace(/\/+$/, '');
@@ -53,7 +59,7 @@ function normalizeModelName(rawModel, rawBaseURL = '') {
  * Call AI Brain API (DeepSeek / Qwen / OpenRouter / SiliconFlow / OpenAI Compatible)
  * Supports dual-model architecture: Fast backend referee brain (deepseek-v4-flash) & High-literary Storyteller
  */
-async function callDeepSeek({ messages, temperature = 0.85, max_tokens = 500, response_format = null, overrideModel = null }) {
+async function callDeepSeek({ messages, temperature = 0.85, max_tokens = 800, response_format = null, overrideModel = null, min_p = 0.05 }) {
   const settings = db.getSettings();
   const apiKey = settings.apiKey || config.deepseek.apiKey;
   const baseURL = settings.baseURL || config.deepseek.baseURL;
@@ -66,7 +72,7 @@ async function callDeepSeek({ messages, temperature = 0.85, max_tokens = 500, re
     model: model,
     messages: messages,
     temperature: typeof temperature === 'number' ? temperature : 0.85,
-    max_tokens: max_tokens || 500
+    max_tokens: max_tokens || 800
   };
 
   if (response_format) {
@@ -131,7 +137,7 @@ async function callFastRefereeBrain(options) {
  */
 function cleanAndParseJSON(rawText) {
   try {
-    let clean = rawText.trim();
+    let clean = (rawText || '').trim();
     clean = clean.replace(/```json\s*/gi, '').replace(/```\s*$/gi, '').trim();
     const firstBrace = clean.indexOf('{');
     const lastBrace = clean.lastIndexOf('}');
@@ -141,7 +147,7 @@ function cleanAndParseJSON(rawText) {
     return JSON.parse(clean);
   } catch (err) {
     console.warn('Failed to parse clean JSON:', err.message);
-    const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+    const jsonMatch = (rawText || '').match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       return JSON.parse(jsonMatch[0]);
     }
@@ -150,53 +156,30 @@ function cleanAndParseJSON(rawText) {
 }
 
 /**
- * Helper: Generate Layer 1 Master Index (Lean Bible Architecture)
- */
-function generateMasterIndex(world, character, slot) {
-  const stats = character.static_profile?.base_stats || {};
-  const discovered = slot.discovered_npcs || [];
-  
-  let indexText = `# WORLD INDEX — ${world.name}\n\n`;
-  indexText += `## Characters\n| id | name | short_desc | role | rel_val |\n|---|---|---|---|---|\n`;
-  indexText += `| ${character.id} | ${character.name} | ${character.short_desc || ''} | Main Character | ${slot.dynamic_state?.relationship_value || 0} |\n`;
-  
-  discovered.forEach(n => {
-    indexText += `| ${n.id} | ${n.name} | ${n.brief_desc || ''} | ${n.role || 'NPC'} | ${n.relationship_value || 0} |\n`;
-  });
-
-  indexText += `\n## Player Stats Available\nSTR: ${stats.strength || 10}, AGI: ${stats.agility || 10}, INT: ${stats.intelligence || 10}, CHA: ${stats.charisma || 10}, PER: ${stats.perception || 10}\n`;
-
-  if (slot.inventory && slot.inventory.length > 0) {
-    indexText += `\n## Inventory Items\n${slot.inventory.map(i => `- ${i}`).join('\n')}\n`;
-  }
-
-  if (slot.codex_notes && slot.codex_notes.length > 0) {
-    indexText += `\n## Secret Notes & Codex\n${slot.codex_notes.map(n => `- [${n.id}] ${n.title} (สถานะ: ${n.unlocked ? 'ปลดล็อกแล้ว' : 'ล็อกอยู่'})`).join('\n')}\n`;
-  }
-
-  indexText += `\n## Current State Summary\nอารมณ์ของ ${character.name}: ${slot.dynamic_state?.current_emotion || 'ปกติ'}, ความผูกพัน: ${slot.dynamic_state?.relationship_status || 'เป็นกลาง'}\n`;
-
-  return indexText;
-}
-
-/**
- * Helper: Advance scene day/time/location
+ * Advance scene clock by 10-25 minutes per standard turn
  */
 function advanceSceneTime(currentScene, updates = {}) {
-  let day = currentScene?.day || 1;
-  let timeStr = currentScene?.time || "08:30";
-  let location = updates.location || currentScene?.location || "จุดเริ่มต้น";
+  let { day = 1, time = "08:30", location = "จุดเริ่มต้น" } = currentScene || {};
 
-  if (updates.new_time) {
-    timeStr = updates.new_time;
+  if (updates.location) {
+    location = updates.location;
+  }
+
+  let [hours, minutes] = (time || "08:30").split(':').map(Number);
+  if (isNaN(hours)) hours = 8;
+  if (isNaN(minutes)) minutes = 30;
+
+  const minutesToAdd = updates.minutes_passed || (Math.floor(Math.random() * 15) + 10);
+  let totalMinutes = (hours * 60) + minutes + minutesToAdd;
+
+  let timeStr = time;
+  if (totalMinutes >= 24 * 60) {
+    day += Math.floor(totalMinutes / (24 * 60));
+    totalMinutes = totalMinutes % (24 * 60);
+    const newH = String(Math.floor(totalMinutes / 60)).padStart(2, '0');
+    const newM = String(totalMinutes % 60).padStart(2, '0');
+    timeStr = `${newH}:${newM}`;
   } else {
-    // Advance 10-25 mins
-    const [hh, mm] = timeStr.split(':').map(Number);
-    let totalMinutes = (isNaN(hh) ? 8 : hh) * 60 + (isNaN(mm) ? 30 : mm) + Math.floor(Math.random() * 15 + 10);
-    if (totalMinutes >= 24 * 60) {
-      day += Math.floor(totalMinutes / (24 * 60));
-      totalMinutes %= 24 * 60;
-    }
     const newH = String(Math.floor(totalMinutes / 60)).padStart(2, '0');
     const newM = String(totalMinutes % 60).padStart(2, '0');
     timeStr = `${newH}:${newM}`;
@@ -210,7 +193,7 @@ function advanceSceneTime(currentScene, updates = {}) {
 }
 
 /**
- * Execute 4-Stage Pipeline for a single turn (Speed-Optimized & Folder-Isolated)
+ * Execute Full Turn through 9-Tier Memory, Lorebook Scanner, and Fate Engine
  */
 async function executeTurnPipeline({ slotId, playerInput, customRoll = null }) {
   // Step 0: Save Snapshot before executing turn (Enables clean Undo / Rollback)
@@ -228,7 +211,7 @@ async function executeTurnPipeline({ slotId, playerInput, customRoll = null }) {
   const maxStoryTokens = parseInt(stylePreset.max_response_tokens || settings.max_story_tokens || settings.maxTokens || 1200, 10);
 
   // ==========================================
-  // STAGE 1 & 2: DETERMINISTIC MECHANICAL GM & FATE ENGINE (0ms)
+  // STAGE 1 & 2: DETERMINISTIC MECHANICAL GM & FATE ENGINE
   // ==========================================
   const textLower = playerInput.text.toLowerCase();
   let statToCheck = 'charisma';
@@ -303,7 +286,27 @@ async function executeTurnPipeline({ slotId, playerInput, customRoll = null }) {
   };
 
   // ==========================================
-  // ADVANCE SCENE TIME & LOCATION (Section 1, 7, 39)
+  // STAGE 2.5: MEMORY ENGINE & LOREBOOK RETRIEVAL (Hybrid RAG)
+  // ==========================================
+  // 1. Scan Lorebook entries
+  const allLoreEntries = (world.lorebook_entries || []).concat(
+    (world.lore_details ? [
+      { id: 'lore_geo', title: 'ภูมิศาสตร์และสถานที่', content: world.lore_details.geography, mode: 'normal', keys: ['ที่ไหน', 'สถานที่', 'ทางไป', 'ห้อง'] },
+      { id: 'lore_magic', title: 'กฎของพลัง Will / เวทมนตร์', content: world.lore_details.magic_rules, mode: 'normal', keys: ['will', 'พลัง', 'ธาตุ', 'ออร่า'] },
+      { id: 'lore_factions', title: 'สภานักเรียนและองค์กร', content: world.lore_details.factions, mode: 'normal', keys: ['สภา', 'สมาคม', 'องค์กร', 'กิลด์'] }
+    ] : [])
+  );
+  const triggeredLore = lorebookEngine.scan(playerInput.text, allLoreEntries);
+
+  // 2. Search relevant episodic memories via Hybrid RAG
+  const currentTurnIdx = (slot.history || []).length;
+  const retrievedMems = memoryEngine.searchRelevantMemories(slotId, playerInput.text, currentTurnIdx, { topK: 3 });
+
+  // 3. Fetch active semantic facts
+  const activeFacts = memoryEngine.getActiveFacts(slotId);
+
+  // ==========================================
+  // ADVANCE SCENE TIME & LOCATION
   // ==========================================
   const currentScene = slot.dynamic_state.scene || { day: 1, time: "08:30", location: world.name || "จุดเริ่มต้น" };
   const updatedScene = advanceSceneTime(currentScene);
@@ -322,8 +325,11 @@ async function executeTurnPipeline({ slotId, playerInput, customRoll = null }) {
     consequence,
     recentHistory: (slot.history || []).slice(-4),
     rollingSummary: slot.rolling_summary || '',
-    scene: updatedScene,
-    customInstructions: stylePreset.custom_instructions || ''
+    currentScene: updatedScene,
+    customInstructions: stylePreset.custom_instructions || '',
+    lorebookInjections: triggeredLore,
+    retrievedMemories: retrievedMems,
+    activeFacts: activeFacts
   });
 
   let narrationText = '';
@@ -371,6 +377,14 @@ async function executeTurnPipeline({ slotId, playerInput, customRoll = null }) {
   let finalNarration = narrationText.trim();
   if (!finalNarration.startsWith('📍') && !finalNarration.includes('[ วันที่')) {
     finalNarration = sceneHeader + finalNarration;
+  }
+
+  // Check Canon Locks
+  if (world.canon_locks && world.canon_locks.length > 0) {
+    const canonCheck = lorebookEngine.verifyCanonLocks(finalNarration, world.canon_locks);
+    if (!canonCheck.compliant) {
+      console.warn('[CanonLock] Warning detected in narrative:', canonCheck.violations);
+    }
   }
 
   // Apply multi-character relationship deltas
@@ -440,14 +454,7 @@ async function executeTurnPipeline({ slotId, playerInput, customRoll = null }) {
     }
   });
 
-  if (Array.isArray(consequence.inventory_add)) {
-    slot.inventory.push(...consequence.inventory_add);
-  }
-  if (Array.isArray(consequence.inventory_remove)) {
-    slot.inventory = slot.inventory.filter(i => !consequence.inventory_remove.includes(i));
-  }
-
-  // Apply secret notes unlock across protagonist and roster
+  // Apply secret notes unlock
   const unlockedSecrets = consequence.state_changes?.secret_notes_unlocked || [];
   if (consequence.unlock_secret_id) unlockedSecrets.push(consequence.unlock_secret_id);
 
@@ -487,34 +494,79 @@ async function executeTurnPipeline({ slotId, playerInput, customRoll = null }) {
 
   slot.history.push(userTurn, aiTurn);
 
-  // Update save folder without clobbering snapshot history
+  // Update save folder
   const { snapshots, ...slotDataToUpdate } = slot;
   db.updateSaveSlot(slotId, slotDataToUpdate);
 
-  // Background Rolling Summary (AI #4)
-  if (slot.history.length % 8 === 0) {
-    setTimeout(async () => {
-      try {
-        const summaryPrompt = getMemorySummaryPrompt(
-          character.name,
-          slot.rolling_summary,
-          slot.history.slice(-8)
-        );
-        const summaryRes = await callDeepSeek({
+  // ==========================================
+  // STAGE 4: ASYNC MEMORY WRITER & FACT EXTRACTION (Sections 6, 8, 9)
+  // ==========================================
+  setTimeout(async () => {
+    try {
+      // 1. Extract Fact Triplets & Episodic Memory
+      const reflectionPrompt = getFactAndMemoryExtractorPrompt({
+        worldName: world.name,
+        characterName: character.name,
+        latestTurns: [userTurn, aiTurn],
+        currentScene: updatedScene,
+        currentFacts: activeFacts
+      });
+
+      const reflectionRes = await callFastRefereeBrain({
+        messages: [{ role: 'system', content: reflectionPrompt }],
+        temperature: 0.3,
+        max_tokens: 400
+      });
+
+      const parsedReflection = cleanAndParseJSON(reflectionRes);
+
+      if (parsedReflection.episodic_memory && parsedReflection.episodic_memory.content) {
+        memoryEngine.addEpisodicMemory(slotId, {
+          turn_number: Math.floor(slot.history.length / 2),
+          content: parsedReflection.episodic_memory.content,
+          importance: parsedReflection.episodic_memory.importance || 5,
+          emotional_valence: parsedReflection.episodic_memory.emotional_valence || 'neutral',
+          entities: parsedReflection.episodic_memory.entities || [],
+          location: updatedScene.location
+        });
+      }
+
+      if (Array.isArray(parsedReflection.new_facts)) {
+        for (const f of parsedReflection.new_facts) {
+          if (f.subject && f.predicate && f.object) {
+            memoryEngine.reconcileFact(slotId, {
+              ...f,
+              turn_number: Math.floor(slot.history.length / 2)
+            });
+          }
+        }
+      }
+
+      // 2. Periodic Long-term Recursive Summarization
+      if (slot.history.length % 8 === 0) {
+        const summaryPrompt = getMemorySummaryPrompt({
+          worldName: world.name,
+          characterName: character.name,
+          currentSummary: slot.rolling_summary,
+          recentTurns: slot.history.slice(-8),
+          activeDynamicState: slot.dynamic_state
+        });
+        const summaryRes = await callFastRefereeBrain({
           messages: [{ role: 'system', content: summaryPrompt }],
           temperature: 0.3,
-          max_tokens: 300
+          max_tokens: 350
         });
+        const parsedSummary = cleanAndParseJSON(summaryRes);
         const currentSlot = db.getSaveSlotById(slotId);
         if (currentSlot) {
-          currentSlot.rolling_summary = summaryRes;
+          currentSlot.rolling_summary = parsedSummary.rolling_summary || summaryRes;
           db.updateSaveSlot(slotId, currentSlot);
         }
-      } catch (e) {
-        console.warn('Async memory summary warning:', e.message);
       }
-    }, 100);
-  }
+    } catch (e) {
+      console.warn('[MemoryEngine] Async reflection warning:', e.message);
+    }
+  }, 100);
 
   return {
     slotId,
@@ -527,12 +579,14 @@ async function executeTurnPipeline({ slotId, playerInput, customRoll = null }) {
     roster: slot.roster || [],
     discovered_npc: consequence.discovered_npc || null,
     fateResult,
-    consequence
+    consequence,
+    retrieved_memories: retrievedMems,
+    active_facts: activeFacts
   };
 }
 
 /**
- * Regenerate story for the last AI response (Calls AI #3 only)
+ * Regenerate story for the last AI response
  */
 async function regenerateNarration({ slotId, customInstructions = '' }) {
   const slot = db.getSaveSlotById(slotId);
@@ -551,7 +605,7 @@ async function regenerateNarration({ slotId, customInstructions = '' }) {
   const world = db.getWorldById(slot.world_id);
   const settings = db.getSettings();
   const stylePreset = slot.style_preset || {};
-  const maxStoryTokens = parseInt(stylePreset.max_response_tokens || settings.maxTokens || 500, 10);
+  const maxStoryTokens = parseInt(stylePreset.max_response_tokens || settings.maxTokens || 800, 10);
 
   const consequence = lastAiTurn.consequence || {
     outcome_summary: 'การสนทนาดำเนินต่อไป',
@@ -560,16 +614,24 @@ async function regenerateNarration({ slotId, customInstructions = '' }) {
   };
   const fateResult = lastAiTurn.fateResult || null;
 
+  const currentTurnIdx = slot.history.length;
+  const retrievedMems = memoryEngine.searchRelevantMemories(slotId, lastUserTurn.content, currentTurnIdx, { topK: 3 });
+  const activeFacts = memoryEngine.getActiveFacts(slotId);
+
   const storytellerSysPrompt = getStorytellerSystemPrompt(stylePreset);
   const storytellerUserPrompt = getStorytellerUserPrompt({
     world,
     character: { ...character, dynamic_state: slot.dynamic_state },
+    worldRoster: slot.roster || [],
     playerInput: { type: lastUserTurn.type || 'Say', text: lastUserTurn.content },
     fateResult,
     consequence,
     recentHistory: slot.history.slice(0, -2).slice(-4),
     rollingSummary: slot.rolling_summary,
-    customInstructions: customInstructions || stylePreset.custom_instructions
+    currentScene: lastAiTurn.scene || slot.dynamic_state.scene || { day: 1, time: "08:30", location: world.name },
+    customInstructions: customInstructions || stylePreset.custom_instructions,
+    retrievedMemories: retrievedMems,
+    activeFacts: activeFacts
   });
 
   const newNarration = await callDeepSeek({
@@ -581,7 +643,7 @@ async function regenerateNarration({ slotId, customInstructions = '' }) {
     max_tokens: maxStoryTokens
   });
 
-  lastAiTurn.content = newNarration;
+  lastAiTurn.content = newNarration.trim();
   lastAiTurn.updated_at = new Date().toISOString();
   db.updateSaveSlot(slotId, slot);
 
@@ -603,7 +665,7 @@ async function analyzeWorldbookContent(rawContent) {
   const res = await callDeepSeek({
     messages: [{ role: 'system', content: prompt }],
     temperature: 0.5,
-    max_tokens: 2500
+    max_tokens: 3000
   });
 
   const parsed = cleanAndParseJSON(res);
@@ -632,7 +694,13 @@ async function analyzeWorldbookContent(rawContent) {
  * AI Opening Prologue Generator
  */
 async function generateOpeningPrologue({ worldName, worldDesc, characterName, charDesc, charPersonality }) {
-  const prompt = getPrologueGeneratorPrompt(worldName, worldDesc, characterName, charDesc, charPersonality);
+  const prompt = getPrologueGeneratorPrompt({
+    worldName,
+    worldDesc,
+    characterName,
+    charDesc,
+    charPersonality
+  });
   const res = await callDeepSeek({
     messages: [{ role: 'system', content: prompt }],
     temperature: 0.85,
@@ -647,5 +715,7 @@ module.exports = {
   regenerateNarration,
   callDeepSeek,
   analyzeWorldbookContent,
-  generateOpeningPrologue
+  generateOpeningPrologue,
+  memoryEngine,
+  lorebookEngine
 };

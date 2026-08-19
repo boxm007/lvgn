@@ -80,12 +80,22 @@ class Database {
         factions: '',
         custom_lore: ''
       },
+      lorebook_entries: world.lorebook_entries || [],
+      canon_locks: world.canon_locks || [],
       created_at: new Date().toISOString(),
       creator: world.creator || 'user'
     };
     this.worlds.push(newWorld);
     this.saveGlobalData();
     return newWorld;
+  }
+
+  updateWorld(worldId, updates) {
+    const idx = this.worlds.findIndex(w => w.id === worldId);
+    if (idx === -1) return null;
+    this.worlds[idx] = { ...this.worlds[idx], ...updates, updated_at: new Date().toISOString() };
+    this.saveGlobalData();
+    return this.worlds[idx];
   }
 
   // ==========================================
@@ -127,6 +137,14 @@ class Database {
     this.characters.push(newChar);
     this.saveGlobalData();
     return newChar;
+  }
+
+  updateCharacter(characterId, updates) {
+    const idx = this.characters.findIndex(c => c.id === characterId);
+    if (idx === -1) return null;
+    this.characters[idx] = { ...this.characters[idx], ...updates };
+    this.saveGlobalData();
+    return this.characters[idx];
   }
 
   // ==========================================
@@ -177,6 +195,8 @@ class Database {
       const codex = fs.existsSync(path.join(slotPath, 'codex.json')) ? JSON.parse(fs.readFileSync(path.join(slotPath, 'codex.json'), 'utf8')) : { notes: [], discovered_npcs: [] };
       const preset = fs.existsSync(path.join(slotPath, 'preset.json')) ? JSON.parse(fs.readFileSync(path.join(slotPath, 'preset.json'), 'utf8')) : {};
       const snapshots = fs.existsSync(path.join(slotPath, 'snapshots.json')) ? JSON.parse(fs.readFileSync(path.join(slotPath, 'snapshots.json'), 'utf8')) : [];
+      const memories = fs.existsSync(path.join(slotPath, 'memories.json')) ? JSON.parse(fs.readFileSync(path.join(slotPath, 'memories.json'), 'utf8')) : [];
+      const facts = fs.existsSync(path.join(slotPath, 'facts.json')) ? JSON.parse(fs.readFileSync(path.join(slotPath, 'facts.json'), 'utf8')) : [];
 
       const defaultScene = { day: 1, time: "08:30", location: "จุดเริ่มต้น" };
       const loadedState = state.dynamic_state || { relationship_value: 0, relationship_status: 'เป็นกลาง', current_emotion: 'ปกติ' };
@@ -212,7 +232,9 @@ class Database {
         style_preset: preset,
         rolling_summary: state.rolling_summary || '',
         history: history,
-        snapshots: snapshots
+        snapshots: snapshots,
+        memories: memories,
+        facts: facts
       };
     } catch (err) {
       console.error(`Error reading slot from folder ${slotId}:`, err);
@@ -255,6 +277,7 @@ class Database {
       id: slotId,
       world_id: worldId,
       character_id: charId,
+      custom_avatar: character.avatar || '',
       slot_name: name || `การเดินทาง ${new Date().toLocaleDateString('th-TH')}`,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
@@ -311,6 +334,8 @@ class Database {
     fs.writeFileSync(path.join(slotFolder, 'codex.json'), JSON.stringify(codex, null, 2), 'utf8');
     fs.writeFileSync(path.join(slotFolder, 'preset.json'), JSON.stringify(preset, null, 2), 'utf8');
     fs.writeFileSync(path.join(slotFolder, 'snapshots.json'), JSON.stringify([], null, 2), 'utf8');
+    fs.writeFileSync(path.join(slotFolder, 'memories.json'), JSON.stringify([], null, 2), 'utf8');
+    fs.writeFileSync(path.join(slotFolder, 'facts.json'), JSON.stringify([], null, 2), 'utf8');
 
     return this.readSlotFromFolder(slotId);
   }
@@ -328,6 +353,7 @@ class Database {
       id: merged.id,
       world_id: merged.world_id,
       character_id: merged.character_id,
+      custom_avatar: merged.custom_avatar || current.custom_avatar || '',
       slot_name: merged.slot_name,
       created_at: merged.created_at,
       updated_at: merged.updated_at
@@ -354,6 +380,12 @@ class Database {
     }
     if (updates.snapshots !== undefined) {
       fs.writeFileSync(path.join(slotFolder, 'snapshots.json'), JSON.stringify(updates.snapshots, null, 2), 'utf8');
+    }
+    if (updates.memories !== undefined) {
+      fs.writeFileSync(path.join(slotFolder, 'memories.json'), JSON.stringify(updates.memories, null, 2), 'utf8');
+    }
+    if (updates.facts !== undefined) {
+      fs.writeFileSync(path.join(slotFolder, 'facts.json'), JSON.stringify(updates.facts, null, 2), 'utf8');
     }
 
     return merged;
@@ -427,7 +459,10 @@ class Database {
       inventory: JSON.parse(JSON.stringify(current.inventory)),
       codex_notes: JSON.parse(JSON.stringify(current.codex_notes)),
       discovered_npcs: JSON.parse(JSON.stringify(current.discovered_npcs || [])),
+      roster: JSON.parse(JSON.stringify(current.roster || [])),
       rolling_summary: current.rolling_summary,
+      memories: JSON.parse(JSON.stringify(current.memories || [])),
+      facts: JSON.parse(JSON.stringify(current.facts || [])),
       history_length: current.history.length
     };
 
@@ -452,8 +487,17 @@ class Database {
     slot.inventory = lastSnapshot.inventory;
     slot.codex_notes = lastSnapshot.codex_notes;
     slot.discovered_npcs = lastSnapshot.discovered_npcs || [];
+    if (lastSnapshot.roster) slot.roster = lastSnapshot.roster;
     slot.rolling_summary = lastSnapshot.rolling_summary;
     slot.history = slot.history.slice(0, lastSnapshot.history_length);
+    if (lastSnapshot.memories) {
+      slot.memories = lastSnapshot.memories;
+      fs.writeFileSync(path.join(slotPath, 'memories.json'), JSON.stringify(slot.memories, null, 2), 'utf8');
+    }
+    if (lastSnapshot.facts) {
+      slot.facts = lastSnapshot.facts;
+      fs.writeFileSync(path.join(slotPath, 'facts.json'), JSON.stringify(slot.facts, null, 2), 'utf8');
+    }
 
     fs.writeFileSync(path.join(slotPath, 'snapshots.json'), JSON.stringify(slot.snapshots, null, 2), 'utf8');
     this.updateSaveSlot(slotId, slot);

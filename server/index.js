@@ -4,7 +4,7 @@ const path = require('path');
 const config = require('./config');
 const db = require('./db');
 const { initSeedData } = require('./seedData');
-const { executeTurnPipeline, regenerateNarration, analyzeWorldbookContent, generateOpeningPrologue } = require('./aiPipeline');
+const { executeTurnPipeline, regenerateNarration, analyzeWorldbookContent, generateOpeningPrologue, memoryEngine, lorebookEngine } = require('./aiPipeline');
 
 // Initialize Seed Data on startup
 initSeedData();
@@ -12,7 +12,7 @@ initSeedData();
 const app = express();
 
 app.use(cors());
-app.use(express.json({ limit: '15mb' }));
+app.use(express.json({ limit: '25mb' }));
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // ==========================================
@@ -23,9 +23,9 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
-    name: 'Long Voyage Engine',
-    version: '1.2.0',
-    storage: 'Folder-Based Isolated Saves',
+    name: 'Long Voyage Engine (Modern AI Roleplay Architecture)',
+    version: '2.0.0',
+    storage: 'Folder-Based Isolated Saves (9-Tier Memory Enabled)',
     model: db.getSettings().model,
     timestamp: new Date().toISOString()
   });
@@ -38,9 +38,9 @@ app.get('/api/worlds', (req, res) => {
 
 app.post('/api/worlds', (req, res) => {
   try {
-    const { name, description, tag, cover_image, lore_details } = req.body;
+    const { name, description, tag, cover_image, lore_details, lorebook_entries, canon_locks } = req.body;
     if (!name) return res.status(400).json({ error: 'World name is required' });
-    const newWorld = db.createWorld({ name, description, tag, cover_image, lore_details });
+    const newWorld = db.createWorld({ name, description, tag, cover_image, lore_details, lorebook_entries, canon_locks });
     res.json({ world: newWorld });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -69,6 +69,23 @@ app.post('/api/worlds/advanced', (req, res) => {
     }
 
     res.json({ world: createdWorld, characters: createdChars });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get World Lorebook & Canon Locks
+app.get('/api/lorebook/:worldId', (req, res) => {
+  try {
+    const world = db.getWorldById(req.params.worldId);
+    if (!world) return res.status(404).json({ error: 'World not found' });
+    res.json({
+      worldId: world.id,
+      name: world.name,
+      lore_details: world.lore_details || {},
+      lorebook_entries: world.lorebook_entries || [],
+      canon_locks: world.canon_locks || []
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -139,6 +156,16 @@ app.post('/api/characters', (req, res) => {
   }
 });
 
+app.put('/api/characters/:id', (req, res) => {
+  try {
+    const updated = db.updateCharacter(req.params.id, req.body);
+    if (!updated) return res.status(404).json({ error: 'Character not found' });
+    res.json({ character: updated });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // --- Save Slots (Folder-Based Isolated Saves) ---
 app.get('/api/slots', (req, res) => {
   const { world_id, character_id } = req.query;
@@ -172,6 +199,29 @@ app.delete('/api/slots/:id', (req, res) => {
   res.json({ success: true });
 });
 
+// Update slot character / avatar
+app.put('/api/slots/:id/character/avatar', (req, res) => {
+  try {
+    const { avatar, character_id } = req.body;
+    if (!avatar) return res.status(400).json({ error: 'Avatar URL is required' });
+
+    const slot = db.getSaveSlotById(req.params.id);
+    if (!slot) return res.status(404).json({ error: 'Slot not found' });
+
+    if (!character_id || character_id === slot.character_id) {
+      slot.custom_avatar = avatar;
+    } else if (slot.roster) {
+      const npc = slot.roster.find(r => r.id === character_id);
+      if (npc) npc.avatar = avatar;
+    }
+
+    db.updateSaveSlot(slot.id, slot);
+    res.json({ success: true, slot });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // --- Dynamic NPC Remember / Register into Worldbook ---
 app.post('/api/slots/:id/npc/remember', (req, res) => {
   try {
@@ -181,6 +231,59 @@ app.post('/api/slots/:id/npc/remember', (req, res) => {
     const registered = db.rememberNPC(req.params.id, npc);
     const updatedSlot = db.getSaveSlotById(req.params.id);
     res.json({ success: true, npc: registered, slot: updatedSlot });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- Memory & Fact Management Endpoints ---
+app.get('/api/slots/:id/memories', (req, res) => {
+  try {
+    const memories = memoryEngine.getMemories(req.params.id);
+    const facts = memoryEngine.getFacts(req.params.id);
+    const slot = db.getSaveSlotById(req.params.id);
+    res.json({
+      slotId: req.params.id,
+      memories,
+      facts,
+      rolling_summary: slot?.rolling_summary || ''
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/slots/:id/memories/:memId', (req, res) => {
+  try {
+    memoryEngine.deleteMemory(req.params.id, req.params.memId);
+    res.json({ success: true, memoryId: req.params.memId });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/slots/:id/facts', (req, res) => {
+  try {
+    const { subject, predicate, object, confidence } = req.body;
+    if (!subject || !predicate || !object) {
+      return res.status(400).json({ error: 'Subject, predicate, and object are required' });
+    }
+    const created = memoryEngine.reconcileFact(req.params.id, {
+      subject,
+      predicate,
+      object,
+      confidence: confidence || 0.95
+    });
+    res.json({ success: true, fact: created });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/slots/:id/facts/:factId', (req, res) => {
+  try {
+    memoryEngine.deleteFact(req.params.id, req.params.factId);
+    res.json({ success: true, factId: req.params.factId });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -292,7 +395,6 @@ function normalizeModelName(rawModel, rawBaseURL = '') {
   let m = rawModel.trim();
   const base = (rawBaseURL || '').toLowerCase();
   
-  // If not using OpenRouter (e.g. using DeepSeek official, DashScope, SiliconFlow, or standard endpoint)
   if (!base.includes('openrouter.ai')) {
     if (m === 'deepseek/deepseek-chat-v4-flash' || m === 'deepseek/deepseek-v4-flash') {
       m = 'deepseek-v4-flash';
@@ -304,7 +406,6 @@ function normalizeModelName(rawModel, rawBaseURL = '') {
       m = 'deepseek-reasoner';
     }
   } else {
-    // OpenRouter mappings
     if (m === 'deepseek-chat' || m === 'deepseek-v3') {
       m = 'deepseek/deepseek-chat';
     } else if (m === 'deepseek-reasoner' || m === 'deepseek-r1') {
@@ -383,9 +484,9 @@ const PORT = config.port;
 const HOST = config.host;
 app.listen(PORT, HOST, () => {
   console.log(`=========================================`);
-  console.log(` Long Voyage Server running at:`);
-  console.log(` http://localhost:${PORT}`);
-  console.log(` Storage: Folder-Based Isolated Saves (data/saves/<slot_id>/)`);
-  console.log(` Model: ${db.getSettings().model}`);
+  console.log(` Long Voyage 2.0 (Modern AI Roleplay Architecture)`);
+  console.log(` Server running at: http://localhost:${PORT}`);
+  console.log(` 9-Tier Memory & Lorebook Engine: ACTIVE`);
+  console.log(` Storage: Folder-Based Isolated Saves (data/saves/)`);
   console.log(`=========================================`);
 });

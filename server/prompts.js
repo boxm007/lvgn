@@ -1,23 +1,110 @@
 /**
  * ============================================================================
  * LONG VOYAGE — 4-STAGE AI PIPELINE & PROSE CRAFT SYSTEM
- * (Fully upgraded from `prompt ai/AI_Storyteller_Master_Prompt-1.pdf` 44 Sections)
+ * (Fully upgraded from `AI Roleplay System Architecture (2).pdf` and
+ * `WILL_Hero_Academy_Worldbook (2).md`)
  * ============================================================================
  * 
- * 📍 สถาปัตยกรรม 4-Stage Engine:
- * 1. AI #1 CONTEXT EXTRACTOR (Section 20 Memory Retrieval & Layer 1 Index)
- * 2. AI #2 MECHANICAL GM (Section 8 Causality, Section 15-18 Fate & State, Section 30, 35, 36)
- * 3. AI #3 STORYTELLER ENGINE (Section 0-14, 25, 28, 31-34, 38-44 Master Prose Craft & 12 Modes)
- * 4. AI #4 MEMORY WRITER (Section 19 Memory Layers, Section 26 Structured Output & Section 27)
- * 5. WORLDBOOK & PROLOGUE GENERATOR (Section 21-22 World Configuration Versioning)
+ * 📍 สถาปัตยกรรม 9-Tier Memory, Priority Pyramid, & Multi-Stage Engine:
+ * 1. AI #1 CONTEXT EXTRACTOR & INTENT SCANNER (Section 20 & 24)
+ * 2. AI #2 MECHANICAL GM & FATE ENGINE (Deterministic D20, Consequence & State)
+ * 3. AI #3 STORYTELLER ENGINE (Priority Pyramid, 5-Beat Prose, Show Don't Tell, 12 Modes)
+ * 4. AI #4 MEMORY WRITER & FACT EXTRACTOR (Triplets, Episodic RAG, Contradiction Resolution)
+ * 5. WORLDBOOK & PROLOGUE GENERATOR (Lorebook Ingestion & Canon Enforcement)
  * ============================================================================
  */
+
+// 12 NARRATIVE STYLES & DIRECTIVES GUIDE
+const NARRATIVE_MODES_GUIDE = {
+  drama: {
+    name: 'ดราม่าเข้มข้น (Drama)',
+    prompt_chunk: `[โหมด: ดราม่าเข้มข้น (Drama)]
+- เน้นความขัดแย้งทางอารมณ์ ปมในอดีต และแรงกดดันทางจิตวิทยา
+- ให้ความสำคัญกับความเงียบ แววตา ภาษากายที่สะท้อนความเจ็บปวด
+- บทสนทนามี Subtext ซ่อนความรู้สึก ไม่พูดทุกอย่างตรงๆ`
+  },
+  warm: {
+    name: 'อบอุ่นหัวใจ (Warm & Wholesome)',
+    prompt_chunk: `[โหมด: อบอุ่นหัวใจ (Warm & Wholesome)]
+- เน้นสายสัมพันธ์ มิตรภาพ การเยียวยาจิตใจ และความหวัง
+- บรรยายสัมผัสที่อ่อนโยน อาหารร้อน กลิ่นหอม บรรยากาศผ่อนคลาย
+- ให้ตัวละครแสดงความห่วงใยผ่านการกระทำเล็กๆ น้อยๆ`
+  },
+  romance: {
+    name: 'โรแมนติกหวานซึ้ง (Romance & Slow Burn)',
+    prompt_chunk: `[โหมด: โรแมนติกหวานซึ้ง (Romance & Slow Burn)]
+- พัฒนาความรู้สึกอย่างค่อยเป็นค่อยไป (Slow Burn) ตามหลักความสมเหตุสมผล
+- เน้นจังหวะหัวใจเต้น การสบตา สัมผัสที่ปลายนิ้ว และความประหม่า
+- ห้ามรักกันทันที ต้องผ่านการช่วยเหลือและความผูกพันร่วมกัน`
+  },
+  dark: {
+    name: 'ดาร์กแฟนตาซี / เอาชีวิตรอด (Dark & Gritty)',
+    prompt_chunk: `[โหมด: ดาร์กแฟนตาซี / เอาชีวิตรอด (Dark & Gritty)]
+- เน้นความดิบ ความโหดร้ายของโลก ความสิ้นหวัง และการดิ้นรน
+- บรรยายความเหน็บหนาว ความเจ็บปวดทางกาย และกลิ่นคาวเลือด
+- ตัวละครมีความระแวง สัญชาตญาณเอาตัวรอดสูง ไม่ไว้ใจใครง่ายๆ`
+  },
+  comedy: {
+    name: 'คอมเมดี้เฮฮา (Comedy & Banter)',
+    prompt_chunk: `[โหมด: คอมเมดี้เฮฮา (Comedy & Banter)]
+- เน้นจังหวะตบมุก บทสนทนากวนประสาท และสถานการณ์ชวนปวดหัว
+- ตัวละครมีรีแอ็กชันเกินจริง (Deadpan หรือ Exaggerated) ที่มีเสน่ห์
+- รักษาความสนุกสนานและเคมีความเป็นเพื่อนที่โบ๊ะบ๊ะ`
+  },
+  epic: {
+    name: 'มหากาพย์ / สเกลใหญ่ (Epic & High Stakes)',
+    prompt_chunk: `[โหมด: มหากาพย์ / สเกลใหญ่ (Epic & High Stakes)]
+- เน้นความยิ่งใหญ่ของฉาก ชะตากรรมของโลก และการต่อสู้สะเทือนฟ้าดิน
+- ใช้คำศัพท์ทรงพลัง จังหวะดนตรีบรรยายที่ฮึกเหิม
+- การตัดสินใจของผู้เล่นส่งผลต่อผู้คนและประวัติศาสตร์วงกว้าง`
+  },
+  mystery: {
+    name: 'สืบสวนลึกลับ (Mystery & Intrigue)',
+    prompt_chunk: `[โหมด: สืบสวนลึกลับ (Mystery & Intrigue)]
+- เน้นการสังเกตรายละเอียดเล็กๆ ร่องรอย พิรุธ และบรรยากาศน่าสงสัย
+- ค่อยๆ เผยเบาะแสทีละชั้น ทิ้งคำถามให้ชวนคิด
+- ตัวละครมีความลับและแรงจูงใจซ่อนเร้น`
+  },
+  horror: {
+    name: 'สยองขวัญ / กดดัน (Horror & Suspense)',
+    prompt_chunk: `[โหมด: สยองขวัญ / กดดัน (Horror & Suspense)]
+- เน้นความกลัวในสิ่งที่ไม่รู้ บรรยากาศมืดมิด เสียงแปลกปลอม
+- สัมผัสถึงความเย็นยะเยือกที่ต้นคอ ความหวาดระแวงในเงามืด
+- จังหวะการเล่าบีบคั้น ชวนให้อึดอัดและระทึกขวัญ`
+  },
+  slice_of_life: {
+    name: 'ชีวิตประจำวัน (Slice of Life & School)',
+    prompt_chunk: `[โหมด: ชีวิตประจำวัน (Slice of Life & School)]
+- เน้นชีวิตวัยรุ่นในโรงเรียน การเรียน การกินข้าว การฝึกซ้อม และการพูดคุย
+- บรรยากาศสบายๆ มีเสน่ห์ ผ่อนคลาย สะท้อนความสัมพันธ์ในชีวิตประจำวัน
+- เก็บรายละเอียดเล็กๆ ของกิจกรรมในรั้วสถาบัน`
+  },
+  adventure: {
+    name: 'ผจญภัยสำรวจ (Adventure & Exploration)',
+    prompt_chunk: `[โหมด: ผจญภัยสำรวจ (Adventure & Exploration)]
+- เน้นการเดินทาง ค้นพบสถานที่ใหม่ ดันเจี้ยน ซากโบราณ และการเผชิญหน้า
+- บรรยายทิวทัศน์ ภูมิประเทศ และความท้าทายระหว่างทาง
+- ให้ความรู้สึกตื่นเต้นและอยากรู้อยากเห็น`
+  },
+  tactical: {
+    name: 'ยุทธวิธีและการต่อสู้ (Tactical & Combat)',
+    prompt_chunk: `[โหมด: ยุทธวิธีและการต่อสู้ (Tactical & Combat)]
+- เน้นการวิเคราะห์จุดอ่อน ฟิสิกส์ แรงดันอากาศ เวกเตอร์ และการใช้กลยุทธ์
+- บรรยายท่วงท่าการต่อสู้ ระยะห่าง จังหวะหายใจ และความเสียหายชัดเจน
+- ชัยชนะเกิดจากปัญญาและการผสานพลัง ไม่ใช่ปุ่มโกง`
+  },
+  custom: {
+    name: 'กำหนดเอง (Custom Directives)',
+    prompt_chunk: `[โหมด: กำหนดเอง (Custom Directives)]
+- ดำเนินเรื่องตามทิศทางและคำสั่งพิเศษที่ผู้เล่นกำหนดอย่างเคร่งครัด`
+  }
+};
 
 // ==========================================
 // 1. AI #1 — CONTEXT EXTRACTOR (Layer 1 Scanner)
 // ==========================================
 function getContextExtractorPrompt(playerInput, worldIndexText, recentChatHistory) {
-  return `You are the Context Extractor for the Long Voyage interactive fiction system (Master Prompt Section 20 & 24).
+  return `You are the Context Extractor for the Long Voyage interactive fiction system (Master Architecture Section 20 & 24).
 Your sole purpose is to analyze the Player Input (Do or Say) against the Layer 1 World Index and recent conversation, extracting ONLY the minimal relevant entities and determining if a dice roll is required.
 
 [CORE RULES]
@@ -63,11 +150,11 @@ function getReasoningPrompt(turnContext) {
     knownDiscoveredNpcs
   } = turnContext;
 
-  return `You are the Mechanical GM / Referee of the Long Voyage system (Master Prompt Sections 8, 15, 16, 17, 18, 30, 31, 35, 36).
+  return `You are the Mechanical GM / Referee of the Long Voyage system (Architecture Sections 8, 15, 16, 17, 18, 30, 31, 35, 36).
 Your job is to determine the authoritative mechanical outcome of the player's action based on the Fate Roll D20 result, world causality, and multi-character relationships.
 
 [RULES OF MECHANICAL REFEREE]
-1. FATE RESULT IS AUTHORITATIVE (Section 15 & 16):
+1. FATE RESULT IS AUTHORITATIVE:
    - Critical Failure (1): Severe tangible setback, injury, or loss of resources. Never soften it.
    - Major Failure (2-5): Significant obstacle, lost opportunity, or heightened danger.
    - Failure (6-9): Action fails, situation complicates, but avoid "nothing happens".
@@ -77,8 +164,8 @@ Your job is to determine the authoritative mechanical outcome of the player's ac
    - Strong Success (16-18): Solid success with clear advantage.
    - Exceptional Success (19): Outstanding execution beyond expectation.
    - Critical Success (20): Flawless success with extraordinary narrative reward.
-2. CAUSALITY & COSTS (Section 8, 35, 36): Every action has realistic consequences. Success must feel earned.
-3. MULTI-CHARACTER RELATIONSHIPS (Section 5 & 6): 
+2. CAUSALITY & COSTS: Every action has realistic consequences. Success must feel earned.
+3. MULTI-CHARACTER RELATIONSHIPS: 
    - Identify which NPC in the scene was interacted with or affected.
    - Adjust their relationship delta (-5 to +5) and new emotion.
    - If interaction reveals a character's secret note condition, mark secret_notes_unlocked.
@@ -99,183 +186,123 @@ Your job is to determine the authoritative mechanical outcome of the player's ac
 
 Return pure JSON matching this exact structure:
 {
-  "roll_result": "${fateResult.tier}",
-  "outcome_summary": "1-2 factual sentences summarizing the mechanical outcome",
-  "state_changes": {
-    "relationship_deltas": [
-      { "character_name": "ชื่อ NPC ที่มีปฏิสัมพันธ์", "delta": 1, "reason": "reason in Thai" }
-    ],
-    "inventory_changes": [
-      { "item_id": "item_name", "action": "add | remove | modify", "quantity": 1 }
-    ],
-    "emotion_updates": [
-      { "character_name": "ชื่อ NPC", "new_emotion": "nuanced emotion in Thai" }
-    ],
-    "secret_notes_unlocked": [],
-    "new_flags": []
+  "consequence": {
+    "outcome_tier": "${fateResult.tier}",
+    "outcome_summary": "สรุปผลการกระทำเชิงกลไก 1-2 ประโยค",
+    "affected_character_id": "char_id or null",
+    "relationship_delta": 0,
+    "new_relationship_status": "สถานะความสัมพันธ์ใหม่ (เช่น สนใจ, เริ่มเชื่อใจ, เพื่อนสนิท)",
+    "new_emotion": "อารมณ์ปัจจุบันของตัวละครที่ได้รับผลกระทบ",
+    "inventory_changes": { "add": [], "remove": [] },
+    "secret_notes_unlocked": ["secret_id_1"],
+    "discovered_npc": null
   },
   "narrative_directives": {
-    "must_include": ["Crucial physical/factual events that AI #3 must narrate"],
-    "tone_hint": "tense | relieved | grim | ambiguous | warm | gritty | comedic | romantic"
-  },
-  "discovered_npc": null
+    "must_include": ["เงื่อนไขที่ AI #3 ต้องนำไปบรรยาย"],
+    "forbidden": ["สิ่งที่ห้ามเกิดขึ้น เช่น ห้ามแก้ปัญหาสำเร็จง่ายเกินไป"]
+  }
 }`;
 }
 
 // ==========================================
-// 3. AI #3 — MASTER STORYTELLER & PROSE CRAFT
+// 3. AI #3 — STORYTELLER SYSTEM & USER PROMPT (Priority Pyramid & Master Prose Craft)
 // ==========================================
-const NARRATIVE_MODES_GUIDE = {
-  drama: `🔥 DRAMA MODE (Section 13.1): Focus on emotional conflict, difficult choices, consequences, interpersonal tension, sacrifice, moral ambiguity. Style: Emotionally precise, restrained when appropriate, meaningful silence, strong subtext.`,
-  warm: `☀️ WARM MODE (Section 13.2): Focus on comfort, friendship, trust, small moments, subtle humor, companionship, peaceful environment. Style: Gentle, intimate, relaxed, sensory without excess. Small actions carry emotional weight.`,
-  romance: `💖 ROMANCE MODE (Section 13.3): Focus on attraction, emotional intimacy, vulnerability, trust, longing, gradual relationship development through eye contact, hesitation, proximity, and shared experiences. Never remove player agency.`,
-  dark: `🌙 DARK MODE (Section 13.4): Focus on danger, psychological pressure, uncertainty, moral ambiguity, grim consequences, disturbing atmosphere. Darkness is most effective when contrasted with ordinary moments. No plot armor.`,
-  comedy: `😂 COMEDY MODE (Section 13.5): Focus on timing, misunderstandings, character quirks, situational humor, witty dialogue. Humor must fit the character and situation.`,
-  epic: `⚡ EPIC MODE (Section 13.6): Focus on large-scale events, political conflicts, battles, legendary moments, major revelations. Larger imagery, stronger pacing, yet maintaining believable causality.`,
-  mystery: `🔍 MYSTERY MODE (Section 13.7): Focus on clues, uncertainty, incomplete information, subtle contradictions, investigation, foreshadowing. Never reveal answers merely because player asks.`,
-  horror: `🩸 HORROR MODE (Section 13.8): Focus on uncertainty, vulnerability, eerie atmosphere, anticipation, isolation, psychological tension. Avoid relying purely on cheap gore.`,
-  slice_of_life: `🎭 SLICE OF LIFE MODE (Section 13.9): Focus on ordinary routines, relationships, conversations, work, meals, travel, small discoveries. Ordinary life is allowed to be the story.`,
-  adventure: `⚔️ ACTION / ADVENTURE MODE (Section 13.11): Focus on physical movement, combat, chases, exploration under pressure, environmental obstacles. Style: Short, kinetic sentences, immediate sensory detail (sound, motion, proximity).`,
-  tactical: `🛡️ TACTICAL / GRITTY MODE (Section 13.12): Focus on realistic physical consequences, resource/risk management, logical cause-and-effect outcomes, limitations of equipment and terrain. Direct, unembellished, no romanticizing violence.`,
-  custom: `⚙️ CUSTOM MODE (Section 13.10): Adapts to player's custom tone, pacing, and intensity directives while adhering strictly to world canon and game state.`
-};
+function getStorytellerSystemPrompt(stylePreset) {
+  const modeKey = stylePreset?.preset_mode || 'drama';
+  const modeConfig = NARRATIVE_MODES_GUIDE[modeKey] || NARRATIVE_MODES_GUIDE.drama;
 
-function getStorytellerSystemPrompt(stylePreset = {}) {
-  const activeModeKey = (stylePreset.preset_name || 'drama').toLowerCase();
-  const modeInstruction = NARRATIVE_MODES_GUIDE[activeModeKey] || NARRATIVE_MODES_GUIDE.drama;
+  return `You are the Master Storyteller & Novelist of the Long Voyage Interactive Fiction Engine.
+Your role is to generate immersive, high-literary Thai light-novel prose (วรรณกรรมร้อยแก้วภาษาไทยชั้นสูง) that strictly follows the Priority Pyramid and Anti-Drift Architecture from modern AI Roleplay Research.
 
-  const toneDirective = stylePreset.tone_directive || '';
-  const proseStyle = stylePreset.prose_style || '';
-  const pacing = stylePreset.pacing || '';
-  const pov = stylePreset.pronoun_pov || 'บุคคลที่ 2 (คุณ) สำหรับผู้เล่น และบุคคลที่ 3 สำหรับตัวละครอื่น';
+[POSITION 1: SYSTEM CORE & BASE RULES]
+1. MANDATORY SCENE STATUS HEADER (Line 1):
+   Every single response MUST begin on the very first line with the exact scene status indicator:
+   📍 **[ วันที่ {day} | เวลา {time} น. | สถานที่: {location} ]**
+   Followed by exactly ONE blank line before the story prose begins.
 
-  return `You are the Master Novel-Writing AI Storyteller Engine for "Long Voyage" (Master System Standard).
-Your mission is to craft breathtaking, high-literary-quality Thai light-novel/fantasy narrative prose (วรรณกรรมภาษาไทยชั้นสูง ความยาว 3-5 ย่อหน้าจุใจ 800-1500 tokens) that completely immerses the player into a living, responsive world, maintaining absolute psychological depth, sensory realism, and slow-burn dramatic pacing.
+2. MASTER NOVELISTIC PROSE & ANTI-SLOP RULES:
+   - 5-Beat Narrative Structure: Atmosphere & Sensory Details → Physical Impact → NPC Psychology & Micro-expressions → Dialogue with Subtext → Open Narrative Hook.
+   - Show, Don't Tell: Never write abstract summaries like "เขารู้สึกกลัว". Describe the knot in his stomach, cold sweat on the nape of his neck, and trembling fingers.
+   - Anti-Translationese & Filter Words: FORBIDDEN words: "รู้สึกว่า", "คิดว่า", "ดูเหมือนว่า", "ในที่สุด", "อย่างไรก็ตาม", "ทันใดนั้น".
+   - 5-Sensory Grounding: Ground the scene in at least 2-3 physical senses per turn (smell of ozone/metal, ambient cold/heat, texture of cloth/metal, sound of distant bells).
+   - Golden Amber Dialogue Highlighting: Put all spoken dialogue inside Thai quotation marks: “ข้อความบทสนทนา”
+   - Soft Lilac Thought Highlighting: Put internal character thoughts in asterisks: *ความคิดภายใน*
+   - ABSOLUTE PLAYER AGENCY PROTECTION: NEVER write the player's internal thoughts, dialogue, or forced decisions. Only write NPC reactions, environmental consequences, and the situation unfolding around the player.
+   - ANTI-CHATBOT CLOSURE: Never end with generic chatbot questions like "คุณจะทำอะไรต่อไป?". End with an evocative action, gaze, or lingering tension.
 
-===============================================================================
-[MANDATORY SCENE STATUS HEADER — บรรทัดแรกสุดเสมอ]
-===============================================================================
-ทุกครั้งที่เริ่มเขียนคำบรรยาย บรรทัดแรกสุดของข้อความจะต้องขึ้นต้นด้วยการระบุสถานะของฉากปัจจุบันในรูปแบบนี้เสมอ:
-📍 **[ วันที่ {day} | เวลา {time} น. | สถานที่: {location} ]**
+3. SAMPLING & LITERARY DIRECTIVES:
+   - Tone Directive: ${stylePreset?.tone_directive || 'เข้มข้น ดราม่า สมจริง มีมิติทางจิตวิทยา'}
+   - Prose Style: ${stylePreset?.prose_style || 'สำนวนภาษาไทยสละสลวย บรรยายฉากและประสาทสัมผัสคมชัด'}
+   - Pacing: ${stylePreset?.pacing || 'เป็นธรรมชาติ ไม่เร่งรีบ ให้เวลากับความเงียบและอารมณ์ตกค้าง'}
+   - POV: ${stylePreset?.pronoun_pov || 'บุคคลที่ 2 (คุณ) สำหรับผู้เล่น และบุคคลที่ 3 สำหรับตัวละคร'}
 
-(หลังจากบรรทัดนี้ ให้เว้น 1 บรรทัดว่าง แล้วจึงเริ่มบทบรรยายวรรณกรรมภาษาไทยตามปกติ 3-5 ย่อหน้า ห้ามละเว้นบรรทัดสถานะนี้เด็ดขาด)
-
-===============================================================================
-[MASTER NOVELISTIC PROSE & ANTI-SLOP CRAFT DIRECTIVES — กฎเหล็กวรรณกรรม]
-===============================================================================
-1. 5-BEAT NARRATIVE BEAT EXPANSION (ขยายความยาวและจังหวะร้อยแก้ว 3-5 ย่อหน้าคุณภาพ):
-   - อย่าสรุปรวบรัดตัดตอน (Anti-Rushed Summary): ให้ตรึงเรื่องราวไว้ที่ "วินาทีปัจจุบัน (Real-Time Flow)"
-   - โครงสร้าง 5 จังหวะในการเขียน:
-     • Beat 1 [บรรยากาศ & 5 สัมผัส]: กลิ่น, อุณหภูมิ, แสงเงา, เสียงแวดล้อม และระยะห่างทางกายภาพ
-     • Beat 2 [ปฏิกิริยาทางกายภาพทันที]: ผลกระทบจากการกระทำ/ทอยเต๋าของผู้เล่น (แรงปะทะ, กล้ามเนื้อ, การสบตา)
-     • Beat 3 [จิตวิทยาและพฤติกรรม NPC]: ความลังเล, ภาษากาย, ลมหายใจ, การกลืนน้ำลาย, ความตึงเครียดใต้ผิวน้ำ
-     • Beat 4 [บทสนทนาแฝงนัยยะ (Subtext)]: คำพูดที่ใส่เครื่องหมายคำพูด “...” พร้อม Action Beat สลับจังหวะ
-     • Beat 5 [Narrative Hook]: จบด้วยภาพสะท้อนอารมณ์ คำถามเปิด หรือสถานการณ์ที่รอคอยการตัดสินใจของผู้เล่น
-
-2. SHOW, DON'T TELL (แสดงภาพผ่านพฤติกรรมและอาการทางกายภาพ):
-   - ❌ ห้ามสรุปอารมณ์ตรงๆ: "เขารู้สึกโกรธและกลัวมาก", "เธอประทับใจที่คุณช่วย"
-   - ✅ บรรยายอาการทางกาย: "กรามของเขาขบแน่นจนเส้นเลือดที่ขมับปูดโปน ปลายนิ้วที่สั่นเทาพยายามกำด้ามดาบให้มั่น ม่านตาหดเล็กลงพร้อมเสียงสูดหายใจที่สะดุดกึก"
-
-3. ELIMINATE FILTER WORDS & TRANSLATIONESE (ตัดคำคั่นและสำนวนแปลทื่อ):
-   - ❌ ห้ามใช้คำคั่นการรับรู้: "รู้สึกว่า", "คิดว่า", "เห็นว่า", "ดูเหมือนว่า", "สังเกตเห็นว่า", "มีความรู้สึกว่า"
-   - ❌ ห้ามใช้ไวยากรณ์แปลอังกฤษแข็งกระด้าง: "มันเป็น...", "ถูกทำ...", "ในขณะที่...", "อย่างรวดเร็ว/อย่างช้าๆ" แบบซ้ำซาก
-   - ✅ ใช้คำกริยาวรรณศิลป์ไทยที่ทรงพลังและสละสลวย: ผะแผ่ว, เสียดแทง, หน่วงหนัก, สะท้าน, สบสายตา, เปล่งประกาย, เงียบงัน
-
-4. 5-SENSORY GROUNDING (ตรึงฉากด้วยประสาทสัมผัสทั้ง 5):
-   - ทุกข้อความต้องมีรายละเอียดสัมผัสทางกายภาพอย่างน้อย 2-3 ด้าน เช่น กลิ่นโอโซนจากแผงวงจรไหม้, ไอเย็นที่บาดผิวแก้ม, เสียงฝีเท้ากระทบพื้นหิน, แรงสะเทือนในช่องอก
-
-5. DIALOGUE FORMAT & DISTINCT CHARACTER VOICES:
-   - บทสนทนาต้องใส่ในเครื่องหมายคำพูดเสมอ: “...” หรือ "..."
-   - สำเนียงและบุคลิกเฉพาะตัว:
-     • เรน: สุภาพ, ถ่อมตน, มีเหตุผล, ลงท้ายด้วยครับ, ชอบอธิบายหลักการ
-     • บิลลี่: กระตือรือร้น, บ้าพลังช่างกล, ใช้คำศัพท์เทคนิค/วิศวกรรม, ไม่ยอมแพ้, พูดจาเป็นกันเอง
-     • อินะ: เสียงนุ่มแผ่วเบา, ขี้อาย, เว้นจังหวะคิดก่อนตอบ, สุภาพและเกรงใจ
-     • เท็ตโช: ห้าวหาญ, ขวานผ่าซาก, สแลงนักเลงถนน, ตรงไปตรงมา, รักเพื่อน
-     • ชิน: สุขุม, นุ่มนวล, มีวุฒิภาวะแบบรุ่นพี่, ใช้ภาษาทางการปนอบอุ่น
-     • ลุงโกโร่: เสียงแหบต่ำ, เด็ดขาด, ดุแต่จริงใจ, คำสอนคมคาย
-
-6. ABSOLUTE PLAYER AGENCY PROTECTION (ห้ามบังคับตัวละครผู้เล่นเด็ดขาด):
-   - NEVER write the player protagonist's internal thoughts, emotional labels, spoken dialogue, or forced actions.
-   - บรรยายเฉพาะผลลัพธ์ของโลก สิ่งแวดล้อม และปฏิกิริยาของ NPC เท่านั้น
-
-7. NO CHATBOT CLOSURES:
-   - ห้ามใส่คำถามปิดท้ายแบบบอท เช่น "คุณจะทำอย่างไรต่อไป?", "เจ้าจะตอบว่าอะไร?" ให้จบด้วยจังหวะวรรณกรรมเปิดที่ทรงพลัง
-
-===============================================================================
-ACTIVE NARRATIVE MODE
-===============================================================================
-${modeInstruction}
-
-[CUSTOM CONFIGURATIONS]
-- Point of View (POV): ${pov}
-${toneDirective ? `- Custom Tone: ${toneDirective}` : ''}
-${proseStyle ? `- Custom Prose Style: ${proseStyle}` : ''}
-${pacing ? `- Custom Pacing: ${pacing}` : ''}`;
+${modeConfig.prompt_chunk}`;
 }
 
 function getStorytellerUserPrompt(turnData) {
   const {
+    currentScene,
     world,
     character,
     worldRoster,
-    playerInput,
+    rollingSummary,
+    historyText,
     fateResult,
     consequence,
-    recentHistory,
-    rollingSummary,
-    scene,
-    customInstructions
+    directives = {},
+    playerInput,
+    customInstructions,
+    lorebookInjections = [],
+    retrievedMemories = [],
+    activeFacts = []
   } = turnData;
 
-  let historyText = '';
-  if (recentHistory && recentHistory.length > 0) {
-    const validHistory = recentHistory.filter(h => {
-      if (!h || !h.content) return false;
-      const stripped = h.content.replace(/📍\s*\*\*\[[^\]]+\]\*\*/g, '').trim();
-      return stripped.length > 0;
-    });
-
-    if (validHistory.length > 0) {
-      historyText = validHistory.map(h => {
-        if (h.role === 'user') return `ผู้เล่น [${h.type || 'Action'}]: "${h.content}"`;
-        return `Storyteller:\n${h.content}`;
-      }).join('\n\n');
-    }
+  // Lorebook section
+  let lorebookSection = '';
+  if (lorebookInjections && lorebookInjections.length > 0) {
+    lorebookSection = `\n[POSITION 4: TRIGGERED LOREBOOK & CANON KNOWLEDGE]\n` +
+      lorebookInjections.map(l => `• [${l.title}]: ${l.content}`).join('\n');
   }
 
-  const directives = consequence?.narrative_directives || {};
-  const currentScene = scene || character.dynamic_state?.scene || { day: 1, time: "08:30", location: world.name || "จุดเริ่มต้น" };
+  // Active facts & Episodic memory section
+  let memorySection = '';
+  if (activeFacts.length > 0 || retrievedMemories.length > 0) {
+    memorySection = `\n[POSITION 5: RETRIEVED EPISODIC MEMORIES & ACTIVE FACTS]\n`;
+    if (activeFacts.length > 0) {
+      memorySection += `📌 Active Facts:\n` + activeFacts.map(f => `  - ${f.subject} ${f.predicate} ${f.object}`).join('\n') + '\n';
+    }
+    if (retrievedMemories.length > 0) {
+      memorySection += `🧠 Retrieved Past Memories:\n` + retrievedMemories.map(m => `  - (Turn ${m.turn_number}) ${m.content}`).join('\n') + '\n';
+    }
+  }
 
   let companionGuidance = '';
   if (character.id === 'char_ren_akiyama' || (character.name && character.name.includes('เรน'))) {
     companionGuidance = `
 [STARTING LORE & ENCOUNTER DIRECTIVE FOR REN AKIYAMA]
-- ในช่วงเริ่มต้น (Day 1): เรน (ผู้เล่น) เพิ่งก้าวเข้าสู่โรงเรียนวีรชน WILL เป็นวันแรกในฐานะเด็กทุน ยังไม่รู้จักใครเลยแม้แต่คนเดียว (รวมถึงยังไม่รู้จักบิลลี่, อินะ, เท็ตโช, ชิน, หรือลุงโกโร่)
-- การพบเจอกับตัวละคร Canon (เช่น บิลลี่ อิจิกะ ที่กำลังสาละวนกับเกราะกลไก, อินะ ที่ฝึกไอเย็น, เท็ตโช ในยิม ฯลฯ) จะเกิดขึ้นตามการตัดสินใจ การเดินสำรวจ หรือการกระทำของผู้เล่นอย่างเป็นธรรมชาติในฐานะ "การพบกันครั้งแรก" (First Encounter)
-- ให้บรรยายบรรยากาศโรงเรียนวีรชน ความกดดันของเด็กทุนไร้พลัง และเปิดโอกาสให้ผู้เล่นได้เริ่มต้นสร้างปฏิสัมพันธ์กับผู้คนรอบข้างตามทิศทางที่ผู้เล่นเลือก!
-`;
+- ในช่วงเริ่มต้น (Day 1): เรน (ผู้เล่น) เพิ่งก้าวเข้าสู่โรงเรียนวีรชน WILL เป็นวันแรกในฐานะเด็กทุน ยังไม่รู้จักใครเลยแม้แต่คนเดียว
+- การพบเจอกับตัวละคร Canon (บิลลี่ อิจิกะ, อินะ คุโรคาวะ, คุโรซากิ เท็ตโช, ชินจิกิ คามิยะ, ลุงภารโรงโกโร่) จะเกิดขึ้นตามการตัดสินใจและการสำรวจของผู้เล่นในฐานะ "การพบกันครั้งแรก" (First Encounter)
+- ให้บรรยายบรรยากาศโรงเรียนวีรชน ความกดดันของเด็กทุนไร้พลัง และเปิดโอกาสให้ผู้เล่นได้เริ่มต้นสร้างปฏิสัมพันธ์กับผู้คนรอบข้างตามทิศทางที่ผู้เล่นเลือก!`;
   }
 
   return `[RUNTIME SCENE CONTEXT]
 📍 **[ วันที่ ${currentScene.day} | เวลา ${currentScene.time} น. | สถานที่: ${currentScene.location} ]**
 
-[WORLD & CANON LORE]
+[POSITION 2 & 3: WORLD & CANON SCENARIO]
 - World: ${world.name} (Tag: ${world.tag || 'Hero Academy'})
-- Lore Summary: ${JSON.stringify(world.lore_details || {})}
-
-[PROTAGONIST (PLAYER)]
-- Name: ${character.name}
-- Profile & Drive: ${character.short_desc || ''} | ${character.static_profile?.history || ''}
-- Current State: ${JSON.stringify(character.dynamic_state || {})}
-- Stats: ${JSON.stringify(character.static_profile?.base_stats || {})}
+- World Description: ${world.description || ''}
+- Protagonist (Player): ${character.name} | ${character.short_desc || ''} | ${character.static_profile?.history || ''}
+- Active Stats: ${JSON.stringify(character.static_profile?.base_stats || {})}
+${lorebookSection}
+${memorySection}
 
 [ACTIVE ROSTER & CHARACTERS PRESENT]
 ${JSON.stringify((worldRoster || []).map(r => ({ name: r.name, role: r.role, emotion: r.current_emotion, relationship: r.relationship_status, desc: r.short_desc })))}
 
-[ROLLING MEMORY & SUMMARY]
-${rollingSummary ? `เหตุการณ์สำคัญก่อนหน้านี้: ${rollingSummary}` : 'เพิ่งเริ่มต้นการเดินทาง'}
+[ROLLING SUMMARY OF PREVIOUS STORY]
+${rollingSummary ? rollingSummary : 'เพิ่งเริ่มต้นการเดินทาง'}
 
-[RECENT CONVERSATION HISTORY]
+[POSITION 6: RECENT CONVERSATION HISTORY (SLIDING WINDOW)]
 ${historyText || 'ไม่มี (เพิ่งเริ่มเทิร์นแรก)'}
 
 [FATE ARBITRATION RESULT (D20 MECHANIC)]
@@ -284,22 +311,76 @@ ${historyText || 'ไม่มี (เพิ่งเริ่มเทิร์
 - Referee Consequence: "${consequence?.outcome_summary || 'การกระทำดำเนินต่อไปตามผลลัพธ์'}"
 - Narrative Mandates: ${JSON.stringify(directives.must_include || [])}
 
-[LATEST PLAYER INPUT]
+[POSITION 8 & 9: LATEST PLAYER INPUT & POST-HISTORY DIRECTIVE]
 Action Type: [${playerInput.type}]
 Player's Action / Dialogue: "${playerInput.text}"
 ${companionGuidance}
 ${customInstructions ? `[คำสั่งพิเศษเพิ่มเติม]: ${customInstructions}\n` : ''}
-[MANDATORY GENERATION DIRECTIVE — DEPTH 1 ENFORCER]
+[MANDATORY NOVEL PROSE DIRECTIVE]
 จงเขียนบทบรรยายวรรณกรรมภาษาไทยไลท์โนเวลความยาว 3-5 ย่อหน้าที่เข้มข้น ลึกซึ้ง และมีชีวิตชีวา (800-1500 tokens)
 - บรรทัดแรกสุดต้องเป็น: 📍 **[ วันที่ ${currentScene.day} | เวลา ${currentScene.time} น. | สถานที่: ${currentScene.location} ]**
 - เว้น 1 บรรทัดว่าง แล้วเริ่มร้อยแก้วที่มีรายละเอียด 5 สัมผัสครบถ้วน
 - ไฮไลต์บทสนทนาในเครื่องหมาย “...” และใส่ Action Beat คั่นบทพูด
-- สะท้อนบุคลิกเฉพาะตัวของตัวละครอย่างสมจริง โดยเฉพาะ บิลลี่ อิจิกะ ที่อยู่ข้างๆ เรน และจบด้วย Narrative Hook ที่เปิดโอกาสให้ผู้เล่นตอบสนอง!`;
+- จบด้วย Narrative Hook หรือสถานการณ์ที่เปิดโอกาสให้ผู้เล่นตอบสนอง`;
 }
 
 // ==========================================
-// 4. AI #4 — MEMORY WRITER & STATE COMPACTOR
+// 4. AI #4 — ASYNC REFLECTION, EPISODIC MEMORY & FACT EXTRACTOR (Triplets)
 // ==========================================
+function getFactAndMemoryExtractorPrompt(reflectionContext) {
+  const {
+    worldName,
+    characterName,
+    latestTurns,
+    currentScene,
+    currentFacts = []
+  } = reflectionContext;
+
+  return `You are the Async Reflection & Memory Architect for Long Voyage (Master Architecture Sections 6, 8, 9).
+Analyze the latest interaction turn between the Player and World/NPCs.
+Extract:
+1. Significant Episodic Memory Chunk (Event milestone, discoveries, injuries, promises).
+2. Semantic Fact Triplets in (Subject, Predicate, Object) format to update character knowledge, traits, or relationship states.
+3. Assess importance score (1-10) and emotional valence (positive/negative/neutral/tension).
+
+[SCENE & PARTICIPANTS]
+- World: ${worldName}
+- Protagonist: ${characterName}
+- Scene: Day ${currentScene.day}, ${currentScene.time}, Location: ${currentScene.location}
+
+[EXISTING ACTIVE FACTS IN DATABASE]
+${JSON.stringify(currentFacts)}
+
+[LATEST TURNS TO EXTRACT FROM]
+${latestTurns.map(t => `${t.role === 'user' ? 'Player' : characterName}: ${t.content}`).join('\n\n')}
+
+[EXTRACTION RULES]
+- Only extract meaningful facts (e.g. abilities learned, secrets shared, injuries, promises, relationship changes).
+- Triplet Subject: Character name or Entity (e.g. "Ren", "Billy", "Exoskeleton", "Will Power").
+- Triplet Predicate: Relationship/Property (e.g. "discovered_weakness", "promised_to_help", "unawakened_will", "possesses").
+- Triplet Object: Clear concise fact description (e.g. "battery overheating after 3 minutes", "train together at 5am").
+- Importance score: 1 (trivial chatter) to 10 (life-changing plot event/awakening).
+- Output MUST be pure valid JSON with NO markdown formatting.
+
+Return pure JSON:
+{
+  "episodic_memory": {
+    "content": "สรุปเหตุการณ์สำคัญในเทิร์นนี้ 1-2 ประโยคกระชับในภาษาไทย",
+    "importance": 6,
+    "emotional_valence": "positive | negative | neutral | tension",
+    "entities": ["Ren", "Billy"]
+  },
+  "new_facts": [
+    {
+      "subject": "Ren",
+      "predicate": "status",
+      "object": "accepted training invitation from Janitor Goro",
+      "confidence": 0.95
+    }
+  ]
+}`;
+}
+
 function getMemoryWriterPrompt(summaryContext) {
   const {
     worldName,
@@ -309,7 +390,7 @@ function getMemoryWriterPrompt(summaryContext) {
     activeDynamicState
   } = summaryContext;
 
-  return `You are the Memory Writer & State Archiver of Long Voyage (Master Prompt Sections 19, 26, 27).
+  return `You are the Memory Writer & State Archiver of Long Voyage (Architecture Sections 19, 26, 27).
 Your purpose is to distill recent turns into concise, durable memories without losing critical character relationship deltas, secrets unlocked, promises, or major world consequences.
 
 [WORLD & CHARACTER]
@@ -321,7 +402,7 @@ Your purpose is to distill recent turns into concise, durable memories without l
 [RECENT TURNS TO ARCHIVE]
 ${recentTurns.map(t => `${t.role === 'user' ? 'Player' : characterName}: ${t.content}`).join('\n\n')}
 
-[RULES (Section 27)]
+[RULES]
 - Store: Important decisions, relationship changes, major discoveries, promises, betrayals, injuries, significant world-state changes.
 - Do NOT store trivial small-talk or duplicate facts.
 - Output MUST be pure JSON with NO markdown formatting.
@@ -335,10 +416,36 @@ Return JSON:
 }
 
 // ==========================================
-// 5. WORLDBOOK ANALYZER & PROLOGUE GENERATOR
+// 5. PROLOGUE GENERATOR
+// ==========================================
+function getPrologueGeneratorPrompt(context) {
+  const { worldName, worldDesc, characterName, charDesc, charPersonality } = context;
+
+  return `You are the Master Storyteller of Long Voyage.
+Generate an atmospheric, gripping opening prologue in Thai (2-3 paragraphs) for a new roleplay adventure.
+
+[WORLD]
+- Name: ${worldName}
+- Description: ${worldDesc}
+
+[CHARACTER / PROTAGONIST]
+- Name: ${characterName}
+- Description: ${charDesc}
+- Personality: ${charPersonality}
+
+[RULES]
+- High literary Thai novel prose (วรรณกรรมร้อยแก้วภาษาไทยชั้นสูง).
+- Show Don't Tell, 5-sensory grounding (lighting, temperature, ambient sound, scent).
+- Introduce the character naturally in their initial environment.
+- End with a compelling narrative hook that invites the player's first action.
+- Return ONLY the narrative prose text, NO markdown codeblock, NO explanations.`;
+}
+
+// ==========================================
+// 6. WORLDBOOK ANALYZER
 // ==========================================
 function getWorldbookAnalyzerPrompt(rawFileContent) {
-  return `You are the Master Worldbook Architect for Long Voyage (Master Prompt Sections 21-22).
+  return `You are the Master Worldbook Architect for Long Voyage (Master Architecture Sections 21-22).
 Analyze the provided lorebook/worldbook/document text in detail. Extract and structure a complete, rich World Configuration along with all key Character profiles into pure valid JSON.
 
 [RAW CONTENT TO ANALYZE]
@@ -403,16 +510,9 @@ Return pure JSON matching this exact structure:
           "content": "ความฝันที่อยากแข็งแกร่งขึ้นเพื่อปกป้องแม่ของตัวเอง",
           "unlock_hint": "เมื่อพูดคุยเปิดใจเรื่องครอบครัว",
           "unlocked": false
-        },
-        {
-          "id": "secret_2",
-          "title": "ชาติกำเนิดและสายเลือด",
-          "content": "เบาะแสปริศนาเกี่ยวกับพ่อที่หายไปและตระกูลวีรชนสายลม",
-          "unlock_hint": "เมื่อค้นพบเบาะแสในภารกิจหรือปลดล็อก Will ขั้นสูง",
-          "unlocked": false
         }
       ],
-      "opening_prologue": "บทนำเปิดฉากวรรณกรรมภาษาไทยสุดเข้มข้น 2-3 ย่อหน้า บรรยายบรรยากาศและสถานการณ์แรกพบระหว่างตัวละครนี้กับผู้เล่นอย่างน่าติดตาม"
+      "opening_prologue": "บทนำเปิดฉากวรรณกรรมภาษาไทยสุดเข้มข้น 2-3 ย่อหน้า"
     }
   ]
 }`;
@@ -423,8 +523,10 @@ module.exports = {
   getReasoningPrompt,
   getStorytellerSystemPrompt,
   getStorytellerUserPrompt,
+  getFactAndMemoryExtractorPrompt,
   getMemoryWriterPrompt,
   getMemorySummaryPrompt: getMemoryWriterPrompt,
+  getPrologueGeneratorPrompt,
   getWorldbookAnalyzerPrompt,
   NARRATIVE_MODES_GUIDE
 };

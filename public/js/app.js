@@ -1,6 +1,8 @@
 /**
- * LONG VOYAGE — APP CLIENT CONTROLLER
- * Full orchestration of Khuiai UI, 4-Stage AI Pipeline, Detailed Worldbook, Dynamic NPC Discovery & Fast Responses
+ * LONG VOYAGE 2.0 — APP CLIENT CONTROLLER
+ * Full orchestration of Modern AI Roleplay Engine, 9-Tier Memory Architecture,
+ * Fate D20 Engine, Detailed Worldbook Lore, Character Avatar Customizer,
+ * Typewriter Effect, and Message In-Place Editing.
  */
 
 // Global State
@@ -13,12 +15,16 @@ const State = {
   activeSlot: null,
   currentMode: 'Say', // 'Say' or 'Do'
   enableDice: true,
-  isLoadingTurn: false
+  enableTypewriter: true,
+  isLoadingTurn: false,
+  editingMsgId: null,
+  avatarTargetCharId: null,
+  selectedAvatarUrl: ''
 };
 window.State = State;
 window.AppState = State;
 
-// 6 Official Style Mode Presets from `prompt ai/ai3_storyteller-1.md`
+// 12 Official Narrative Style Mode Presets
 const PRESET_TEMPLATES = {
   drama: {
     preset_name: 'ดราม่าเข้มข้น (Drama)',
@@ -26,23 +32,23 @@ const PRESET_TEMPLATES = {
     prose_style: 'สำนวนภาษาไทยสละสลวย บรรยายฉากและประสาทสัมผัสคมชัด มี pause และความเงียบในบทสนทนา หลีกเลี่ยงการบอกอารมณ์ตรงๆ ให้คนอ่านรู้สึกเองผ่านรายละเอียด',
     pacing: 'จังหวะช้าในฉากอารมณ์สำคัญ ปล่อยให้ความเงียบและอารมณ์ตกค้างมีพื้นที่ในข้อความ',
     pronoun_pov: 'บุคคลที่ 2 (คุณ) สำหรับผู้เล่น และบุคคลที่ 3 สำหรับตัวละคร',
-    max_response_tokens: 500
+    max_response_tokens: 800
   },
   warm: {
-    preset_name: 'อบอุ่นหัวใจ (Warm & Bonding)',
+    preset_name: 'อบอุ่นหัวใจ (Warm & Wholesome)',
     tone_directive: 'เน้นความสัมพันธ์เชิงบวก ความผูกพัน และช่วงเวลาสงบท่ามกลางความยากลำบาก ("ความหวังที่หาได้ยากและมีค่า") ให้พื้นที่กับความอบอุ่นเล็กๆ ระหว่างตัวละคร',
     prose_style: 'ภาษาที่นุ่มนวลกว่า มีจังหวะหายใจและรอยยิ้ม แต่ยังคงรักษาผลลัพธ์จริงของเกมอย่างซื่อสัตย์',
     pacing: 'ผ่อนคลาย อบอุ่น มีเวลาให้ตัวละครได้ปรับความเข้าใจ',
     pronoun_pov: 'บุคคลที่ 2 (คุณ)',
-    max_response_tokens: 450
+    max_response_tokens: 750
   },
   romance: {
-    preset_name: 'โรแมนซ์ลึกซึ้ง (Romance)',
+    preset_name: 'โรแมนซ์ลึกซึ้ง (Romance & Slow Burn)',
     tone_directive: 'เน้นความใกล้ชิดทางอารมณ์ ความเปราะบาง ความไว้วางใจ และความโหยหาที่ค่อยๆ ก่อตัวขึ้นอย่างสมจริงผ่านสายตา การลังเล และการกระทำ',
     prose_style: 'ภาษาประณีต เน้นแรงดึงดูด ภาษากาย สัมผัสเบาบาง และสิ่งที่ไม่ยอมพูดตรงๆ เคารพเจตจำนงของผู้เล่น',
     pacing: 'ละเอียดอ่อน เน้นช่วงเวลาชวนประทับใจ',
     pronoun_pov: 'บุคคลที่ 2 (คุณ)',
-    max_response_tokens: 500
+    max_response_tokens: 800
   },
   dark: {
     preset_name: 'ดาร์กกดดัน (Dark & Gritty)',
@@ -50,7 +56,7 @@ const PRESET_TEMPLATES = {
     prose_style: 'ภาพพจน์ที่หนักแน่น กระชับ ไม่ประดับประดา ความเจ็บปวดและความสูญเสียรู้สึกได้จริง ไม่มีการเยียวยาด้วยน้ำเสียงบรรยายที่ soften ความจริง',
     pacing: 'ตึงเครียด บีบคั้น รวดเร็วและไม่ประนีประนอม',
     pronoun_pov: 'บุคคลที่ 2 (คุณ)',
-    max_response_tokens: 500
+    max_response_tokens: 800
   },
   comedy: {
     preset_name: 'ขบขันมีไหวพริบ (Comedy)',
@@ -58,7 +64,7 @@ const PRESET_TEMPLATES = {
     prose_style: 'กระฉับกระเฉง มีมุกตลกตามสถานการณ์โดยไม่ทำลายความเป็นจริงของโลก',
     pacing: 'กระฉับกระเฉง จังหวะตบมุกคมชัด',
     pronoun_pov: 'บุคคลที่ 2 (คุณ)',
-    max_response_tokens: 450
+    max_response_tokens: 700
   },
   epic: {
     preset_name: 'มหากาพย์ยิ่งใหญ่ (Epic)',
@@ -66,7 +72,7 @@ const PRESET_TEMPLATES = {
     prose_style: 'ภาพพจน์กว้างขวาง อลังการ ภาษาทรงพลัง จังหวะมั่นคง',
     pacing: 'มีน้ำหนัก น่าเกรงขาม สง่างาม',
     pronoun_pov: 'บุคคลที่ 2 (คุณ)',
-    max_response_tokens: 600
+    max_response_tokens: 1000
   },
   mystery: {
     preset_name: 'ลึกลับสืบสวน (Mystery)',
@@ -74,7 +80,7 @@ const PRESET_TEMPLATES = {
     prose_style: 'บรรยายสังเกตการณ์ที่จับสายตาทุกรายละเอียด ไม่รีบเฉลยคำตอบ ปล่อยให้ความสงสัยนำพาเรื่อง',
     pacing: 'ระมัดระวัง ตรึงความสนใจ ชวนสืบค้น',
     pronoun_pov: 'บุคคลที่ 2 (คุณ)',
-    max_response_tokens: 500
+    max_response_tokens: 800
   },
   horror: {
     preset_name: 'สยองขวัญกดประสาท (Horror)',
@@ -82,31 +88,31 @@ const PRESET_TEMPLATES = {
     prose_style: 'บรรยายประสาทสัมผัสคมชัด เสียงแปลกปลอม ความมืด และความรู้สึกไม่ปลอดภัย',
     pacing: 'กดดัน ค่อยๆ บีบรัดหัวใจ',
     pronoun_pov: 'บุคคลที่ 2 (คุณ)',
-    max_response_tokens: 500
+    max_response_tokens: 800
   },
   slice_of_life: {
-    preset_name: 'เรียบง่ายสมจริง (Slice of Life)',
+    preset_name: 'ชีวิตประจำวัน (Slice of Life & School)',
     tone_directive: 'จังหวะช้า เน้นรายละเอียดชีวิตประจำวัน ปฏิสัมพันธ์เล็กๆ ระหว่างตัวละคร มื้ออาหาร การเดินทาง และบทสนทนาทั่วไป',
     prose_style: 'ภาษาเรียบง่าย เป็นธรรมชาติ เก็บเกี่ยวช่วงเวลาสงบสุขระหว่างการเดินทาง',
     pacing: 'ช้า ผ่อนคลาย ละเมียดละไม',
     pronoun_pov: 'บุคคลที่ 2 (คุณ)',
-    max_response_tokens: 400
+    max_response_tokens: 700
   },
   adventure: {
     preset_name: 'ผจญภัยแอ็กชัน (Action/Adventure)',
     tone_directive: 'จังหวะเร็ว กระชับ เน้น action และการเคลื่อนไหว เผชิญหน้ากับความท้าทายและการต่อสู้',
-    prose_style: 'ประโยคสั้น กระแทก สร้างความรู้สึกเร่งด่วน ใช้ sensory detail ภายนอก (เสียง, การเคลื่อนไหว, เสี้ยววินาที) ลดการพรรณนาในจิตใจ เน้นสิ่งที่เกิดขึ้นภายนอก',
+    prose_style: 'ประโยคสั้น กระแทก สร้างความรู้สึกเร่งด่วน ใช้ sensory detail ภายนอก ลดการพรรณนาในจิตใจ',
     pacing: 'รวดเร็ว ฉับไว น่าตื่นเต้น',
     pronoun_pov: 'บุคคลที่ 2 (คุณ)',
-    max_response_tokens: 450
+    max_response_tokens: 800
   },
   tactical: {
-    preset_name: 'ยุทธวิธี/สมจริงหยาบกระด้าง (Tactical & Gritty)',
-    tone_directive: 'เน้นความสมจริงของผลที่ตามมาทางกายภาพและยุทธวิธี (ทำแบบนี้ → ผลแบบนี้) ไม่โรแมนติไซส์ความรุนแรง มีตรรกะและเหตุผลชัดเจน',
+    preset_name: 'ยุทธวิธีและการต่อสู้ (Tactical & Gritty)',
+    tone_directive: 'เน้นความสมจริงของผลที่ตามมาทางกายภาพและยุทธวิธี การคำนวณเวกเตอร์ แรงดันอากาศ มีตรรกะและเหตุผลชัดเจน',
     prose_style: 'ภาษากระชับ ตรงประเด็น เหมือนรายงานสถานการณ์ที่แทรกความรู้สึกเข้ามาเป็นระยะ เน้นการวางแผน ทรัพยากร และการตัดสินใจใต้ความกดดัน',
     pacing: 'แม่นยำ เด็ดขาด ตรงไปตรงมา',
     pronoun_pov: 'บุคคลที่ 2 (คุณ)',
-    max_response_tokens: 450
+    max_response_tokens: 800
   },
   custom: {
     preset_name: 'ปรับแต่งอิสระ (Custom Override)',
@@ -114,7 +120,57 @@ const PRESET_TEMPLATES = {
     prose_style: 'ตามที่ผู้เล่นกำหนดเอง',
     pacing: 'กำหนดเอง',
     pronoun_pov: 'บุคคลที่ 2 (คุณ)',
-    max_response_tokens: 500
+    max_response_tokens: 800
+  }
+};
+
+// 12 High-Quality Anime / Fantasy Avatar Presets
+const AVATAR_PRESETS = [
+  { name: 'เด็กหนุ่มผมดำ (Ren style)', url: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=600&auto=format&fit=crop' },
+  { name: 'เด็กสาวผมยาว (Ina style)', url: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?q=80&w=600&auto=format&fit=crop' },
+  { name: 'หนุ่มนักสู้ผิวแทน (Tetsujo style)', url: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=600&auto=format&fit=crop' },
+  { name: 'หนุ่มแว่นสุภาพ (Shin style)', url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=600&auto=format&fit=crop' },
+  { name: 'ช่างกลอัจฉริยะ (Billy style)', url: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=600&auto=format&fit=crop' },
+  { name: 'ชายสูงวัยเก๋าเกม (Janitor Goro)', url: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=600&auto=format&fit=crop' },
+  { name: 'อัศวินสาวเกราะเหล็ก (Seraphina)', url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=600&auto=format&fit=crop' },
+  { name: 'นักปราชญ์ดวงดาว (Lumia)', url: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=600&auto=format&fit=crop' },
+  { name: 'ไซเบอร์เน็ตเนอร์ (Ray)', url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=600&auto=format&fit=crop' },
+  { name: 'จอมเวทพเนจร', url: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?q=80&w=600&auto=format&fit=crop' },
+  { name: 'นักดาบหญิงแห่งเงา', url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=600&auto=format&fit=crop' },
+  { name: 'นักประดิษฐ์สาวไซไฟ', url: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?q=80&w=600&auto=format&fit=crop' }
+];
+
+// Providers metadata
+const AI_PROVIDERS = {
+  deepseek: {
+    name: 'DeepSeek Official',
+    baseURL: 'https://api.deepseek.com',
+    defaultModel: 'deepseek-chat',
+    keyPlaceholder: 'sk-... (DeepSeek API Key)'
+  },
+  openrouter: {
+    name: 'OpenRouter',
+    baseURL: 'https://openrouter.ai/api/v1',
+    defaultModel: 'deepseek/deepseek-chat',
+    keyPlaceholder: 'sk-or-v1-... (OpenRouter API Key)'
+  },
+  qwen: {
+    name: 'Qwen (DashScope)',
+    baseURL: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
+    defaultModel: 'qwen-max',
+    keyPlaceholder: 'sk-... (DashScope API Key)'
+  },
+  siliconflow: {
+    name: 'SiliconFlow',
+    baseURL: 'https://api.siliconflow.cn/v1',
+    defaultModel: 'deepseek-ai/DeepSeek-V3',
+    keyPlaceholder: 'sk-... (SiliconFlow API Key)'
+  },
+  custom: {
+    name: 'Custom Endpoint',
+    baseURL: '',
+    defaultModel: '',
+    keyPlaceholder: 'API Key'
   }
 };
 
@@ -162,10 +218,13 @@ const Elements = {
     modeIndicator: document.getElementById('input-mode-indicator'),
     modeLabel: document.getElementById('input-mode-label'),
     chkEnableDice: document.getElementById('chk-enable-dice'),
+    chkEnableTypewriter: document.getElementById('chk-enable-typewriter'),
     btnUndo: document.getElementById('btn-undo-turn'),
     btnRegen: document.getElementById('btn-regen-turn')
   },
   drawers: {
+    memory: document.getElementById('drawer-memory'),
+    lorebook: document.getElementById('drawer-lorebook'),
     codex: document.getElementById('drawer-codex'),
     codexContent: document.getElementById('drawer-codex-content'),
     inventory: document.getElementById('drawer-inventory'),
@@ -184,24 +243,31 @@ const Elements = {
     btnSavePreset: document.getElementById('btn-save-preset'),
     settings: document.getElementById('drawer-settings'),
     apiKey: document.getElementById('input-api-key'),
-    labelApiKey: document.getElementById('label-api-key'),
+    baseURL: document.getElementById('input-base-url'),
+    modelName: document.getElementById('input-model-name'),
+    refereeModel: document.getElementById('input-referee-model'),
     btnToggleKey: document.getElementById('btn-toggle-key-visibility'),
     btnTestApiKey: document.getElementById('btn-test-api-key'),
-    apiVerifyBox: document.getElementById('api-verify-box'),
-    verifyHeaderRow: document.getElementById('verify-header-row'),
-    verifyStatusTitle: document.getElementById('verify-status-title'),
-    verifyDetailText: document.getElementById('verify-detail-text'),
+    testResult: document.getElementById('test-connection-result'),
     headerApiDot: document.getElementById('header-api-dot'),
-    selectModelPreset: document.getElementById('select-model-preset'),
-    modelName: document.getElementById('input-model-name'),
-    modelHintText: document.getElementById('model-hint-text'),
-    baseURL: document.getElementById('input-base-url'),
-    baseURLHint: document.getElementById('base-url-hint'),
-    globalTokens: document.getElementById('input-global-tokens'),
-    globalTokensVal: document.getElementById('val-global-tokens'),
-    temperature: document.getElementById('input-temperature'),
-    tempVal: document.getElementById('val-temperature'),
     btnSaveSettings: document.getElementById('btn-save-settings')
+  },
+  modals: {
+    avatar: document.getElementById('modal-custom-avatar'),
+    avatarPreview: document.getElementById('avatar-preview-img'),
+    avatarTargetName: document.getElementById('avatar-target-name'),
+    avatarUrlInput: document.getElementById('input-avatar-url'),
+    avatarFileInput: document.getElementById('file-avatar-upload'),
+    avatarPresetsContainer: document.getElementById('avatar-presets-container'),
+    btnSaveAvatar: document.getElementById('btn-save-avatar'),
+    btnCancelAvatar: document.getElementById('btn-cancel-avatar'),
+    btnCloseAvatar: document.getElementById('btn-close-avatar-modal'),
+
+    editMsg: document.getElementById('modal-edit-message'),
+    editMsgInput: document.getElementById('input-edit-message-text'),
+    btnSaveEditMsg: document.getElementById('btn-save-edit-msg'),
+    btnCancelEditMsg: document.getElementById('btn-cancel-edit-msg'),
+    btnCloseEditMsg: document.getElementById('btn-close-edit-modal')
   },
   advModal: {
     modal: document.getElementById('modal-create-world'),
@@ -215,9 +281,10 @@ const Elements = {
     loreGeo: document.getElementById('adv-lore-geo'),
     loreMagic: document.getElementById('adv-lore-magic'),
     loreFactions: document.getElementById('adv-lore-factions'),
+    loreCustom: document.getElementById('adv-lore-custom'),
     charName: document.getElementById('adv-char-name'),
+    charRole: document.getElementById('adv-char-role'),
     charAvatar: document.getElementById('adv-char-avatar'),
-    charDesc: document.getElementById('adv-char-desc'),
     charTags: document.getElementById('adv-char-tags'),
     charHistory: document.getElementById('adv-char-history'),
     statStr: document.getElementById('adv-stat-str'),
@@ -234,8 +301,6 @@ const Elements = {
   },
   wbModal: {
     modal: document.getElementById('modal-worldbook-import'),
-    title: document.getElementById('wb-modal-title'),
-    subtitle: document.getElementById('wb-modal-subtitle'),
     btnClose: document.getElementById('btn-close-worldbook-import'),
     stepUpload: document.getElementById('wb-step-upload'),
     stepPreview: document.getElementById('wb-step-preview'),
@@ -248,7 +313,6 @@ const Elements = {
     rawInput: document.getElementById('input-raw-worldbook'),
     analyzingBanner: document.getElementById('wb-analyzing-indicator'),
     analyzingText: document.getElementById('wb-analyzing-text'),
-    // Step 2 Preview fields
     previewWorldName: document.getElementById('wb-preview-world-name'),
     previewWorldTag: document.getElementById('wb-preview-world-tag'),
     previewWorldDesc: document.getElementById('wb-preview-world-desc'),
@@ -257,53 +321,39 @@ const Elements = {
     previewLoreMagic: document.getElementById('wb-preview-lore-magic'),
     previewLoreFactions: document.getElementById('wb-preview-lore-factions'),
     previewLoreCustom: document.getElementById('wb-preview-lore-custom'),
-    charsContainer: document.getElementById('wb-chars-preview-container'),
-    charsCount: document.getElementById('wb-chars-count'),
+    charsPreviewContainer: document.getElementById('wb-chars-preview-container'),
+    charsCountSpan: document.getElementById('wb-chars-count'),
     btnAddChar: document.getElementById('btn-wb-add-char'),
     btnBackToUpload: document.getElementById('btn-wb-back-to-upload'),
-    btnCancelPreview: document.getElementById('btn-cancel-worldbook-preview'),
     btnConfirmSave: document.getElementById('btn-confirm-save-worldbook')
   }
 };
-
-function initViewportHeight() {
-  const setVh = () => {
-    const vh = window.innerHeight * 0.01;
-    document.documentElement.style.setProperty('--vh', `${vh}px`);
-  };
-  setVh();
-  window.addEventListener('resize', setVh);
-  window.addEventListener('orientationchange', setVh);
-}
 
 // ============================================================================
 // INITIALIZATION
 // ============================================================================
 document.addEventListener('DOMContentLoaded', async () => {
-  initViewportHeight();
   setupEventListeners();
   await loadInitialData();
+  renderAvatarPresets();
 });
 
 async function loadInitialData() {
   try {
-    const [worldsData, charactersData, settingsData] = await Promise.all([
+    const [worldsData, charsData, settingsData] = await Promise.all([
       API.getWorlds(),
       API.getCharacters(),
       API.getSettings()
     ]);
 
     State.worlds = worldsData.worlds || [];
-    State.characters = charactersData.characters || [];
-
-    if (settingsData && settingsData.settings) {
-      populateSettings(settingsData.settings);
-    }
+    State.characters = charsData.characters || [];
 
     renderTagFilters(State.worlds);
     renderWorldsList(State.worlds);
+    populateSettings(settingsData.settings);
   } catch (err) {
-    showToast('เกิดข้อผิดพลาดในการโหลดข้อมูล: ' + err.message, 'error');
+    showToast('โหลดข้อมูลเริ่มต้นล้มเหลว: ' + err.message, 'error');
   }
 }
 
@@ -313,12 +363,12 @@ async function loadInitialData() {
 function switchView(viewName) {
   State.activeView = viewName;
   Object.keys(Elements.views).forEach(key => {
-    const el = Elements.views[key];
-    if (el) el.classList.remove('active');
+    if (key === viewName.replace('view-', '')) {
+      Elements.views[key]?.classList.add('active');
+    } else {
+      Elements.views[key]?.classList.remove('active');
+    }
   });
-
-  const targetEl = document.getElementById(viewName);
-  if (targetEl) targetEl.classList.add('active');
 
   if (viewName === 'view-story') {
     Elements.header.storyInfo.style.display = 'flex';
@@ -332,80 +382,47 @@ function switchView(viewName) {
 // ============================================================================
 // VIEW 1: BROWSE WORLDS & CHARACTERS
 // ============================================================================
-function renderTagFilters(worlds = []) {
-  const container = document.getElementById('tag-filters-container');
-  if (!container) return;
-
-  const tagMap = new Map();
+function renderTagFilters(worlds) {
+  const tags = new Set(['all']);
   worlds.forEach(w => {
-    if (w.tag && w.tag.trim()) {
-      const tag = w.tag.trim();
-      tagMap.set(tag, (tagMap.get(tag) || 0) + 1);
-    }
+    if (w.tag) tags.add(w.tag);
   });
 
-  let html = `<button class="filter-pill active" data-tag="all">ทั้งหมด (${worlds.length})</button>`;
-  tagMap.forEach((count, tag) => {
-    html += `<button class="filter-pill" data-tag="${escapeHtml(tag)}">${escapeHtml(tag)} (${count})</button>`;
-  });
-
-  container.innerHTML = html;
-
-  container.querySelectorAll('.filter-pill').forEach(pill => {
-    pill.addEventListener('click', () => {
-      container.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
-      pill.classList.add('active');
-
-      const tag = pill.dataset.tag;
-      if (tag === 'all') {
-        renderWorldsList(State.worlds);
-      } else {
-        const filtered = State.worlds.filter(w => w.tag && w.tag.toLowerCase() === tag.toLowerCase());
-        renderWorldsList(filtered);
-      }
+  Elements.browse.tagFilters.innerHTML = '';
+  tags.forEach(tag => {
+    const btn = document.createElement('button');
+    btn.className = `filter-pill ${tag === 'all' ? 'active' : ''}`;
+    btn.dataset.tag = tag;
+    btn.innerText = tag === 'all' ? 'ทั้งหมด' : tag;
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      filterWorlds(tag);
     });
+    Elements.browse.tagFilters.appendChild(btn);
   });
 }
 
+function filterWorlds(tag) {
+  if (tag === 'all') {
+    renderWorldsList(State.worlds);
+  } else {
+    const filtered = State.worlds.filter(w => w.tag === tag);
+    renderWorldsList(filtered);
+  }
+}
+
 function renderWorldsList(worlds) {
-  if (!Elements.browse.worldsContainer) return;
   Elements.browse.worldsContainer.innerHTML = '';
 
-  if (!worlds || worlds.length === 0) {
-    if (State.worlds.length === 0) {
-      Elements.browse.worldsContainer.innerHTML = `
-        <div style="grid-column: 1/-1; text-align: center; padding: 48px 20px; color: var(--text-muted);">
-          <i class="fa-solid fa-earth-americas" style="font-size: 40px; margin-bottom: 14px; display: block; color: var(--accent-amber);"></i>
-          <h3 style="font-size: 16px; font-weight: 700; margin-bottom: 6px; color: var(--text-main);">ยังไม่มีโลกในระบบ</h3>
-          <p style="font-size: 13px; color: var(--text-dim); margin-bottom: 18px;">กดปุ่ม "นำเข้า Worldbook" หรือ "สร้างโลกละเอียด" เพื่อเริ่มสร้างจักรวาลของคุณ</p>
-          <div style="display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
-            <button class="btn btn-accent" onclick="document.getElementById('btn-open-worldbook-import').click()">
-              <i class="fa-solid fa-file-import"></i> นำเข้า Worldbook ทันที
-            </button>
-            <button class="btn btn-primary" onclick="document.getElementById('btn-create-world-modal').click()">
-              <i class="fa-solid fa-plus"></i> สร้างโลกละเอียด
-            </button>
-          </div>
-        </div>
-      `;
-    } else {
-      Elements.browse.worldsContainer.innerHTML = `
-        <div style="grid-column: 1/-1; text-align: center; padding: 48px 20px; color: var(--text-muted);">
-          <i class="fa-solid fa-filter-circle-xmark" style="font-size: 40px; margin-bottom: 14px; display: block; color: var(--text-dim);"></i>
-          <h3 style="font-size: 16px; font-weight: 700; margin-bottom: 6px; color: var(--text-main);">ไม่พบโลกที่ตรงกับแท็กหรือคำค้นหา</h3>
-          <p style="font-size: 13px; color: var(--text-dim); margin-bottom: 18px;">ลองค้นหาด้วยคำอื่น หรือกดปุ่มด้านล่างเพื่อแสดงโลกทั้งหมดในระบบ</p>
-          <button class="btn btn-secondary" id="btn-reset-world-filter">
-            <i class="fa-solid fa-rotate-left"></i> แสดงโลกทั้งหมด (${State.worlds.length} โลก)
-          </button>
-        </div>
-      `;
-      document.getElementById('btn-reset-world-filter')?.addEventListener('click', () => {
-        if (Elements.browse.searchInput) Elements.browse.searchInput.value = '';
-        document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
-        document.querySelector('.filter-pill[data-tag="all"]')?.classList.add('active');
-        renderWorldsList(State.worlds);
-      });
-    }
+  if (worlds.length === 0) {
+    Elements.browse.worldsContainer.innerHTML = `
+      <div style="grid-column: 1/-1; text-align: center; padding: 48px 16px; color: var(--text-muted);">
+        <i class="fa-solid fa-compass" style="font-size: 36px; color: var(--primary); margin-bottom: 12px;"></i>
+        <h3>ไม่พบโลกหรือตัวละครที่ค้นหา</h3>
+        <p style="font-size: 13px;">ลองค้นหาด้วยคำอื่น หรือสร้างโลกใหม่ด้วยตนเอง</p>
+      </div>
+    `;
     return;
   }
 
@@ -451,22 +468,12 @@ function renderWorldsList(worlds) {
     Elements.browse.worldsContainer.appendChild(card);
   });
 
-  // Attach click events on character card and button
-  document.querySelectorAll('.char-item-card').forEach(cardEl => {
-    cardEl.addEventListener('click', (e) => {
-      const worldId = cardEl.dataset.worldId;
-      const charId = cardEl.dataset.charId;
-      if (worldId && charId) {
-        openSaveSlotsView(worldId, charId);
-      }
-    });
-  });
-
-  document.querySelectorAll('.btn-select-char').forEach(btn => {
-    btn.addEventListener('click', (e) => {
+  // Attach click handlers
+  document.querySelectorAll('.btn-select-char, .char-item-card').forEach(el => {
+    el.addEventListener('click', (e) => {
       e.stopPropagation();
-      const worldId = btn.dataset.worldId;
-      const charId = btn.dataset.charId;
+      const worldId = el.dataset.worldId;
+      const charId = el.dataset.charId;
       if (worldId && charId) {
         openSaveSlotsView(worldId, charId);
       }
@@ -475,7 +482,7 @@ function renderWorldsList(worlds) {
 }
 
 // ============================================================================
-// VIEW 2: SAVE SLOTS MANAGER (FOLDER-BASED ISOLATED SLOTS)
+// VIEW 2: SAVE SLOTS MANAGER
 // ============================================================================
 async function openSaveSlotsView(worldId, characterId) {
   State.activeWorld = State.worlds.find(w => w.id === worldId);
@@ -534,12 +541,12 @@ function renderSaveSlotsList(slots) {
 
     card.innerHTML = `
       <div class="slot-meta">
-        <span class="slot-name">${slot.slot_name || 'การเดินทาง'}</span>
+        <span class="slot-name">${escapeHtml(slot.slot_name || 'การเดินทาง')}</span>
         <div class="slot-stats-row">
           <span><i class="fa-regular fa-clock"></i> ${new Date(slot.updated_at).toLocaleString('th-TH')}</span>
           <span><i class="fa-solid fa-comments"></i> ${turnCount} เทิร์น</span>
           <span style="color: var(--accent-rose);"><i class="fa-solid fa-heart"></i> ความผูกพัน: ${relVal >= 0 ? '+' : ''}${relVal}</span>
-          <span style="color: var(--accent-amber);"><i class="fa-regular fa-face-smile"></i> ${emotion}</span>
+          <span style="color: var(--accent-amber);"><i class="fa-regular fa-face-smile"></i> ${escapeHtml(emotion)}</span>
         </div>
       </div>
       <div class="slot-actions">
@@ -565,7 +572,7 @@ function renderSaveSlotsList(slots) {
   document.querySelectorAll('.btn-delete-slot').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       e.stopPropagation();
-      if (confirm('คุณต้องการลบโฟลเดอร์เซฟนี้ใช่หรือไม่? ข้อมูลการสนทนาจะหายไปอย่างถาวร')) {
+      if (confirm('คุณต้องการลบโฟลเดอร์เซฟนี้ใช่หรือไม่? ข้อมูลความจำและบทสนทนาจะถูกลบถาวร')) {
         await API.deleteSlot(btn.dataset.slotId);
         showToast('ลบโฟลเดอร์เซฟเรียบร้อย', 'info');
         loadSaveSlots(State.activeWorld.id, State.activeCharacter.id);
@@ -592,7 +599,7 @@ async function createNewSlotHandler() {
 }
 
 // ============================================================================
-// VIEW 3: MAIN STORY & ROLEPLAY CHATROOM (KHUIAI UI)
+// VIEW 3: MAIN STORY & ROLEPLAY CHATROOM
 // ============================================================================
 async function openStoryRoom(slotId) {
   try {
@@ -617,7 +624,8 @@ async function openStoryRoom(slotId) {
 function updateHeaderUI() {
   if (!State.activeCharacter || !State.activeSlot) return;
 
-  Elements.header.charAvatar.src = State.activeCharacter.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop';
+  const currentAvatar = State.activeSlot.custom_avatar || State.activeCharacter.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop';
+  Elements.header.charAvatar.src = currentAvatar;
   Elements.header.charName.innerText = State.activeCharacter.name;
   
   const dynamicState = State.activeSlot.dynamic_state || {};
@@ -653,8 +661,6 @@ function renderChatMessages(history) {
     Elements.story.messagesList.appendChild(msgEl);
   });
 }
-
-
 
 function formatProseContent(rawText, scene = null) {
   if (!rawText) return '';
@@ -692,19 +698,31 @@ function formatProseContent(rawText, scene = null) {
 
 function createMessageElement(msg, isLast) {
   const item = document.createElement('div');
-  item.className = `message-item ${msg.role === 'user' ? 'user-message' : 'ai-message'}`;
+  item.className = `message-item ${msg.role === 'user' ? 'user-message' : 'ai-message'} message-card`;
   item.dataset.msgId = msg.id || ('msg_' + Date.now());
+
+  // Message Hover Actions Toolbar
+  const actionToolbar = `
+    <div class="message-actions-toolbar">
+      <button class="msg-action-btn btn-edit-msg" data-msg-id="${msg.id}" title="แก้ไขข้อความนี้">
+        <i class="fa-solid fa-pen"></i>
+      </button>
+      <button class="msg-action-btn btn-copy-msg" data-msg-id="${msg.id}" title="คัดลอกข้อความ">
+        <i class="fa-solid fa-copy"></i>
+      </button>
+    </div>
+  `;
 
   if (msg.role === 'user') {
     const isDo = msg.type === 'Do';
     item.innerHTML = `
+      ${actionToolbar}
       <div class="user-bubble">
         <span class="user-tag-pill">${isDo ? '⚔️ DO (กระทำ)' : '💬 SAY (คำพูด)'}</span>
         <div>${escapeHtml(msg.content)}</div>
       </div>
     `;
   } else {
-    // AI Storyteller / Prologue Message (Clean & Immersive Novel Prose Layout)
     let fateHtml = '';
     if (msg.fateResult && msg.fateResult.badgeText) {
       fateHtml = `
@@ -738,14 +756,27 @@ function createMessageElement(msg, isLast) {
     const formattedBody = formatProseContent(msg.content, msg.scene);
 
     item.innerHTML = `
+      ${actionToolbar}
       ${prologueRibbon}
       ${fateHtml}
       <div class="ai-prose-bubble ${msg.is_prologue ? 'is-prologue-card' : ''}">
-        ${formattedBody}
+        <div class="prose-content-wrap">${formattedBody}</div>
         ${consequenceHtml}
       </div>
     `;
   }
+
+  // Bind Actions
+  item.querySelector('.btn-edit-msg')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    openEditMessageModal(msg.id);
+  });
+
+  item.querySelector('.btn-copy-msg')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(msg.content);
+    showToast('คัดลอกข้อความเรียบร้อย', 'info');
+  });
 
   return item;
 }
@@ -831,7 +862,6 @@ function playD20LiveRollAnimation(fateResultPromise) {
     const titleEl = overlay.querySelector('.d20-roll-title');
     const descEl = overlay.querySelector('#active-live-d20-desc');
 
-    // Rapid spinning numbers (1-20)
     let currentNum = 1;
     const spinInterval = setInterval(() => {
       currentNum = Math.floor(Math.random() * 20) + 1;
@@ -878,8 +908,51 @@ function playD20LiveRollAnimation(fateResultPromise) {
   });
 }
 
+/**
+ * Typewriter Text Streamer
+ */
+function streamTypewriterText(containerEl, formattedHtml, speedMs = 10) {
+  return new Promise((resolve) => {
+    containerEl.innerHTML = '';
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = formattedHtml;
+
+    // Create stream container
+    const cursor = document.createElement('span');
+    cursor.className = 'typewriter-cursor';
+    containerEl.appendChild(tempDiv);
+    containerEl.appendChild(cursor);
+
+    // Simple smooth reveal
+    const paragraphs = tempDiv.querySelectorAll('p');
+    if (paragraphs.length === 0) {
+      cursor.remove();
+      resolve();
+      return;
+    }
+
+    let pIdx = 0;
+    paragraphs.forEach((p, idx) => {
+      if (idx > 0) p.style.opacity = '0';
+    });
+
+    const interval = setInterval(() => {
+      if (pIdx < paragraphs.length) {
+        paragraphs[pIdx].style.opacity = '1';
+        paragraphs[pIdx].style.animation = 'fadeIn 0.3s ease';
+        pIdx++;
+        scrollToBottom();
+      } else {
+        clearInterval(interval);
+        cursor.remove();
+        resolve();
+      }
+    }, 180);
+  });
+}
+
 // ============================================================================
-// TURN EXECUTION (FAST & TOKEN-CONTROLLED PIPELINE WITH LIVE D20)
+// TURN EXECUTION (WITH 9-TIER MEMORY & HYBRID RAG)
 // ============================================================================
 async function handleSendTurn() {
   if (State.isLoadingTurn || !State.activeSlot) return;
@@ -889,6 +962,7 @@ async function handleSendTurn() {
 
   const mode = State.currentMode;
   const enableDice = Elements.story.chkEnableDice.checked;
+  const enableTypewriter = Elements.story.chkEnableTypewriter?.checked ?? true;
 
   Elements.story.input.value = '';
   Elements.story.input.style.height = 'auto';
@@ -934,9 +1008,19 @@ async function handleSendTurn() {
     State.activeSlot.history.push(res.userTurn, res.aiTurn);
 
     Elements.story.typingIndicator.style.display = 'none';
-    Elements.story.messagesList.appendChild(createMessageElement(res.aiTurn, true));
     
-    // Check if a new NPC was discovered in this turn
+    const msgEl = createMessageElement(res.aiTurn, true);
+    Elements.story.messagesList.appendChild(msgEl);
+
+    if (enableTypewriter) {
+      const proseWrap = msgEl.querySelector('.prose-content-wrap');
+      if (proseWrap) {
+        const fullHtml = formatProseContent(res.aiTurn.content, res.aiTurn.scene);
+        await streamTypewriterText(proseWrap, fullHtml);
+      }
+    }
+    
+    // Check dynamic NPC discovery
     if (res.discovered_npc && res.discovered_npc.name) {
       renderDiscoveredNpcPrompt(res.discovered_npc);
     }
@@ -965,7 +1049,7 @@ async function handleRegenerate() {
 
   State.isLoadingTurn = true;
   Elements.story.typingIndicator.style.display = 'flex';
-  document.getElementById('typing-status-text').innerText = 'AI #3 กำลังเขียนคำบรรยายใหม่...';
+  document.getElementById('typing-status-text').innerText = 'AI กำลังเขียนคำบรรยายใหม่ด้วย Hybrid RAG...';
 
   try {
     const res = await API.regenerate(State.activeSlot.id);
@@ -978,7 +1062,7 @@ async function handleRegenerate() {
   } finally {
     State.isLoadingTurn = false;
     Elements.story.typingIndicator.style.display = 'none';
-    document.getElementById('typing-status-text').innerText = 'DeepSeek กำลังประมวลผล...';
+    document.getElementById('typing-status-text').innerText = 'AI กำลังประมวลผล...';
   }
 }
 
@@ -1000,9 +1084,257 @@ async function handleUndo() {
 }
 
 // ============================================================================
-// DRAWERS & MODALS RENDERING
+// MEMORY & FACT INSPECTOR DRAWER (9-TIER ARCHITECTURE)
 // ============================================================================
-let activeCodexTab = 'social'; // 'protagonist' | 'social' | 'world'
+async function openMemoryDrawer() {
+  if (!State.activeSlot) {
+    showToast('กรุณาเลือกหรือเปิด Save Slot ก่อน', 'info');
+    return;
+  }
+
+  openDrawer('drawer-memory');
+
+  try {
+    const data = await API.getSlotMemories(State.activeSlot.id);
+    const memories = data.memories || [];
+    const facts = data.facts || [];
+    const summary = data.rolling_summary || 'ยังไม่มีสรุปเรื่องย่อ (สรุปจะเกิดขึ้นทุกๆ 8 เทิร์น)';
+
+    document.getElementById('mem-count-badge').innerText = `${memories.length} รายการ`;
+    document.getElementById('facts-count-badge').innerText = `${facts.length} ข้อ`;
+    document.getElementById('memory-rolling-summary-content').innerText = summary;
+
+    // 1. Render Episodic Memories
+    const memContainer = document.getElementById('memory-episodic-list');
+    memContainer.innerHTML = '';
+    if (memories.length === 0) {
+      memContainer.innerHTML = `<div style="text-align: center; padding: 20px; color: var(--text-dim); font-size: 13px;">ยังไม่มีความจำเหตุการณ์ที่บันทึกไว้</div>`;
+    } else {
+      memories.slice().reverse().forEach(mem => {
+        const card = document.createElement('div');
+        card.className = 'memory-card';
+        card.innerHTML = `
+          <div class="memory-card-header">
+            <span class="memory-turn-badge"><i class="fa-solid fa-turn-up"></i> เทิร์นที่ ${mem.turn_number || 1}</span>
+            <span class="memory-importance-badge"><i class="fa-solid fa-star"></i> ความสำคัญ ${mem.importance || 5}/10</span>
+          </div>
+          <div class="memory-content">${escapeHtml(mem.content)}</div>
+          <div class="memory-card-footer">
+            <span><i class="fa-regular fa-clock"></i> ${new Date(mem.timestamp).toLocaleTimeString('th-TH')} | ${escapeHtml(mem.location || 'ในฉาก')}</span>
+            <button class="btn-delete-mem" data-mem-id="${mem.memory_id}" title="ลบความจำนี้"><i class="fa-solid fa-trash-can"></i> ลบ</button>
+          </div>
+        `;
+        memContainer.appendChild(card);
+      });
+
+      memContainer.querySelectorAll('.btn-delete-mem').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const memId = btn.dataset.memId;
+          await API.deleteMemory(State.activeSlot.id, memId);
+          showToast('ลบความจำเรียบร้อย', 'info');
+          openMemoryDrawer();
+        });
+      });
+    }
+
+    // 2. Render Active Facts (Triplets)
+    const factsContainer = document.getElementById('memory-facts-list');
+    factsContainer.innerHTML = '';
+    if (facts.length === 0) {
+      factsContainer.innerHTML = `<div style="text-align: center; padding: 20px; color: var(--text-dim); font-size: 13px;">ยังไม่มีข้อเท็จจริงที่บันทึกไว้</div>`;
+    } else {
+      facts.slice().reverse().forEach(fact => {
+        const isSuperseded = fact.status === 'SUPERSEDED';
+        const card = document.createElement('div');
+        card.className = 'fact-card';
+        if (isSuperseded) card.style.opacity = '0.5';
+
+        card.innerHTML = `
+          <div class="fact-triplet">
+            <span class="fact-subject">${escapeHtml(fact.subject)}</span>
+            <span class="fact-pred">${escapeHtml(fact.predicate)}</span>
+            <span class="fact-obj">"${escapeHtml(fact.object)}"</span>
+            ${isSuperseded ? '<span style="font-size: 10px; color: #ef4444; border: 1px solid #ef4444; border-radius: 3px; padding: 1px 4px;">SUPERSEDED</span>' : ''}
+          </div>
+          <button class="btn-delete-mem btn-delete-fact" data-fact-id="${fact.id}" title="ลบข้อเท็จจริงนี้">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        `;
+        factsContainer.appendChild(card);
+      });
+
+      factsContainer.querySelectorAll('.btn-delete-fact').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const factId = btn.dataset.factId;
+          await API.deleteFact(State.activeSlot.id, factId);
+          showToast('ลบข้อเท็จจริงเรียบร้อย', 'info');
+          openMemoryDrawer();
+        });
+      });
+    }
+  } catch (err) {
+    showToast('โหลดความจำไม่สำเร็จ: ' + err.message, 'error');
+  }
+}
+
+// ============================================================================
+// LOREBOOK & WORLD MAP DRAWER
+// ============================================================================
+async function openLorebookDrawer() {
+  if (!State.activeWorld) {
+    showToast('กรุณาเลือกโลกก่อน', 'info');
+    return;
+  }
+
+  openDrawer('drawer-lorebook');
+
+  try {
+    const data = await API.getWorldLorebook(State.activeWorld.id);
+    const entries = data.lorebook_entries || [];
+    const locks = data.canon_locks || [];
+    const details = data.lore_details || {};
+
+    const container = document.getElementById('drawer-lorebook-content');
+    container.innerHTML = `
+      <div style="margin-bottom: 16px;">
+        <h3 style="font-size: 16px; font-weight: 700; color: var(--accent-amber);"><i class="fa-solid fa-globe"></i> ${escapeHtml(data.name)}</h3>
+        <p style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">ข้อมูล Worldbook, ภูมิศาสตร์, วิทยาการ, และกฎเหล็ก Canon</p>
+      </div>
+
+      <!-- CANON LOCKS SECTION -->
+      ${locks.length > 0 ? `
+        <div style="margin-bottom: 18px;">
+          <h4 style="font-size: 13.5px; font-weight: 700; color: #f87171; margin-bottom: 8px;">
+            <i class="fa-solid fa-shield-halved"></i> กฎ Canon Locks (${locks.length} ข้อบังคับ)
+          </h4>
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            ${locks.map(l => `
+              <div class="canon-lock-badge">
+                <i class="fa-solid fa-lock"></i>
+                <span>${escapeHtml(l.rule)}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      ` : ''}
+
+      <!-- LORE DETAILS -->
+      <div style="margin-bottom: 18px;">
+        <h4 style="font-size: 13.5px; font-weight: 700; color: var(--text-dim); margin-bottom: 8px;">
+          <i class="fa-solid fa-map"></i> ภูมิศาสตร์ & สถานที่ (Geography)
+        </h4>
+        <div class="lore-entry-card">
+          <p style="font-size: 13px; line-height: 1.6; color: var(--text-main); margin: 0;">${escapeHtml(details.geography || 'ไม่มีข้อมูล')}</p>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 18px;">
+        <h4 style="font-size: 13.5px; font-weight: 700; color: var(--text-dim); margin-bottom: 8px;">
+          <i class="fa-solid fa-wand-magic-sparkles"></i> กฎพลังเจตจำนง / ระบบพลัง (Magic & Will)
+        </h4>
+        <div class="lore-entry-card">
+          <p style="font-size: 13px; line-height: 1.6; color: var(--text-main); margin: 0;">${escapeHtml(details.magic_rules || 'ไม่มีข้อมูล')}</p>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 18px;">
+        <h4 style="font-size: 13.5px; font-weight: 700; color: var(--text-dim); margin-bottom: 8px;">
+          <i class="fa-solid fa-users-rays"></i> ฝ่าย & องค์กร (Factions)
+        </h4>
+        <div class="lore-entry-card">
+          <p style="font-size: 13px; line-height: 1.6; color: var(--text-main); margin: 0;">${escapeHtml(details.factions || 'ไม่มีข้อมูล')}</p>
+        </div>
+      </div>
+
+      <!-- KEYWORD TRIGGERED ENTRIES -->
+      ${entries.length > 0 ? `
+        <div>
+          <h4 style="font-size: 13.5px; font-weight: 700; color: var(--accent-amber); margin-bottom: 8px;">
+            <i class="fa-solid fa-book-bookmark"></i> Lorebook Entries (${entries.length} รายการพร้อมคีย์เวิร์ดสแกน)
+          </h4>
+          ${entries.map(e => `
+            <div class="lore-entry-card">
+              <div class="lore-entry-title"><i class="fa-solid fa-feather"></i> ${escapeHtml(e.title)}</div>
+              <div class="lore-entry-keys">
+                ${(e.keys || []).map(k => `<span class="lore-key-pill">${escapeHtml(k)}</span>`).join('')}
+              </div>
+              <p style="font-size: 13px; line-height: 1.6; color: var(--text-main); margin: 0;">${escapeHtml(e.content)}</p>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
+    `;
+  } catch (err) {
+    showToast('โหลด Lorebook ไม่สำเร็จ: ' + err.message, 'error');
+  }
+}
+
+// ============================================================================
+// AVATAR & IMAGE CUSTOMIZER MODAL
+// ============================================================================
+function renderAvatarPresets() {
+  const container = Elements.modals.avatarPresetsContainer;
+  if (!container) return;
+
+  container.innerHTML = '';
+  AVATAR_PRESETS.forEach(preset => {
+    const item = document.createElement('div');
+    item.className = 'avatar-preset-item';
+    item.title = preset.name;
+    item.innerHTML = `<img src="${preset.url}" alt="${escapeHtml(preset.name)}">`;
+    item.addEventListener('click', () => {
+      document.querySelectorAll('.avatar-preset-item').forEach(i => i.classList.remove('active'));
+      item.classList.add('active');
+      State.selectedAvatarUrl = preset.url;
+      Elements.modals.avatarPreview.src = preset.url;
+      Elements.modals.avatarUrlInput.value = preset.url;
+    });
+    container.appendChild(item);
+  });
+}
+
+function openAvatarModal(targetCharId = null) {
+  State.avatarTargetCharId = targetCharId;
+  const isPlayer = !targetCharId || (State.activeCharacter && targetCharId === State.activeCharacter.id);
+
+  let charName = State.activeCharacter ? State.activeCharacter.name : 'ตัวละคร';
+  let currentAvatar = State.activeCharacter ? State.activeCharacter.avatar : AVATAR_PRESETS[0].url;
+
+  if (!isPlayer && State.activeSlot && State.activeSlot.roster) {
+    const npc = State.activeSlot.roster.find(r => r.id === targetCharId);
+    if (npc) {
+      charName = npc.name;
+      currentAvatar = npc.avatar || currentAvatar;
+    }
+  } else if (State.activeSlot && State.activeSlot.custom_avatar) {
+    currentAvatar = State.activeSlot.custom_avatar;
+  }
+
+  Elements.modals.avatarTargetName.innerText = `ปรับแต่งรูป: ${charName}`;
+  Elements.modals.avatarPreview.src = currentAvatar;
+  Elements.modals.avatarUrlInput.value = currentAvatar;
+  State.selectedAvatarUrl = currentAvatar;
+
+  Elements.modals.avatar.style.display = 'flex';
+}
+
+// ============================================================================
+// IN-PLACE MESSAGE EDITING
+// ============================================================================
+function openEditMessageModal(msgId) {
+  if (!State.activeSlot) return;
+  const msg = State.activeSlot.history.find(m => m.id === msgId);
+  if (!msg) return;
+
+  State.editingMsgId = msgId;
+  Elements.modals.editMsgInput.value = msg.content;
+  Elements.modals.editMsg.style.display = 'flex';
+}
+
+// ============================================================================
+// CODEX & INVENTORY DRAWERS
+// ============================================================================
+let activeCodexTab = 'social';
 
 function renderCodexDrawer() {
   if (!State.activeSlot || !State.activeCharacter) return;
@@ -1016,7 +1348,7 @@ function renderCodexDrawer() {
   const discoveredNpcs = slot.discovered_npcs || [];
   const allNpcs = [...roster, ...discoveredNpcs];
 
-  // 1. PROTAGONIST SECRETS HTML
+  // 1. Protagonist Secrets HTML
   let protagSecretsHtml = '';
   const codexNotes = slot.codex_notes || [];
   codexNotes.forEach(note => {
@@ -1039,7 +1371,7 @@ function renderCodexDrawer() {
     }
   });
 
-  // 2. WORLD SOCIAL ROSTER HTML
+  // 2. Social Roster HTML
   let npcsSocialHtml = '';
   if (allNpcs.length === 0) {
     npcsSocialHtml = `<div style="text-align: center; padding: 24px; color: var(--text-dim); font-size: 13px;">ยังไม่พบตัวละครอื่นในเซฟนี้</div>`;
@@ -1053,7 +1385,6 @@ function renderCodexDrawer() {
       const relPercent = Math.min(100, Math.max(0, ((relVal + 100) / 200) * 100));
       const relColor = relVal > 0 ? 'var(--status-good)' : relVal < 0 ? 'var(--status-bad)' : 'var(--text-dim)';
 
-      // NPC Secret Notes HTML
       let npcSecretsHtml = '';
       if (Array.isArray(npc.codex_notes) && npc.codex_notes.length > 0) {
         npc.codex_notes.forEach(sn => {
@@ -1080,7 +1411,10 @@ function renderCodexDrawer() {
       npcsSocialHtml += `
         <div class="npc-social-card">
           <div class="npc-social-header">
-            <img src="${escapeHtml(npc.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop')}" alt="${escapeHtml(npc.name)}" class="npc-social-avatar" onerror="this.src='https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop'">
+            <div class="avatar-wrapper" style="cursor: pointer;" title="คลิกเพื่อเปลี่ยนรูปตัวละครนี้" onclick="openAvatarModal('${npc.id}')">
+              <img src="${escapeHtml(npc.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop')}" alt="${escapeHtml(npc.name)}" class="npc-social-avatar" onerror="this.src='https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop'">
+              <span class="avatar-edit-badge"><i class="fa-solid fa-camera"></i></span>
+            </div>
             <div class="npc-social-header-info">
               <div class="npc-social-name">
                 <span>${escapeHtml(npc.name)}</span>
@@ -1113,11 +1447,14 @@ function renderCodexDrawer() {
     });
   }
 
-  // 3. TAB 1: PROTAGONIST HTML
+  // 3. Protagonist Tab HTML
   const tabProtagonistHtml = `
     <div id="codex-pane-protag" class="codex-pane ${activeCodexTab === 'protagonist' ? 'active' : ''}">
       <div class="codex-profile-card">
-        <img class="codex-avatar" src="${character.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop'}">
+        <div class="avatar-wrapper" style="cursor: pointer;" title="คลิกเพื่อเปลี่ยนรูปตัวละคร" onclick="openAvatarModal()">
+          <img class="codex-avatar" src="${slot.custom_avatar || character.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop'}">
+          <span class="avatar-edit-badge"><i class="fa-solid fa-camera"></i></span>
+        </div>
         <div>
           <span style="font-size: 11px; background: rgba(245, 158, 11, 0.2); color: #fde68a; padding: 2px 8px; border-radius: var(--radius-full); font-weight: 600;">👑 ตัวละครของคุณ (Protagonist)</span>
           <h3 style="font-size: 16px; font-weight: 700; margin-top: 4px;">${escapeHtml(character.name)}</h3>
@@ -1152,80 +1489,31 @@ function renderCodexDrawer() {
     </div>
   `;
 
-  // 4. TAB 2: SOCIAL ROSTER HTML
+  // 4. Social Tab HTML
   const tabSocialHtml = `
     <div id="codex-pane-social" class="codex-pane ${activeCodexTab === 'social' ? 'active' : ''}">
-      <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">
-        ความสัมพันธ์ อารมณ์ และบันทึกลับของตัวละครทุกคนที่คุณพบเจอในโลกนี้ (${allNpcs.length} คน)
-      </p>
+      <p class="section-desc">รายชื่อตัวละครทั้งหมดในโลกนี้ พร้อมระดับความผูกพันและบันทึกลับที่ค้นพบ</p>
       <div class="npcs-social-list">
         ${npcsSocialHtml}
       </div>
     </div>
   `;
 
-  // 5. TAB 3: WORLD LORE HTML
-  const loreDetails = world.lore_details || {};
-  const tabWorldHtml = `
-    <div id="codex-pane-world" class="codex-pane ${activeCodexTab === 'world' ? 'active' : ''}">
-      <div style="background: var(--bg-card); border: 1px solid var(--border-card); border-radius: var(--radius-md); padding: 14px; margin-bottom: 12px;">
-        <span style="font-size: 11px; color: var(--accent-amber); font-weight: 700;">${escapeHtml(world.tag || 'Hero Academy')}</span>
-        <h3 style="font-size: 16px; font-weight: 700; margin: 4px 0 8px 0;">${escapeHtml(world.name || '')}</h3>
-        <p style="font-size: 12.5px; line-height: 1.5; color: var(--text-muted);">${escapeHtml(world.description || '')}</p>
-      </div>
-
-      <div style="display: flex; flex-direction: column; gap: 10px;">
-        ${loreDetails.geography ? `
-          <div style="background: var(--bg-card); border: 1px solid var(--border-card); border-radius: var(--radius-md); padding: 12px;">
-            <h4 style="font-size: 13px; font-weight: 700; color: var(--text-main); margin-bottom: 4px;"><i class="fa-solid fa-mountain-sun" style="color: #60a5fa;"></i> ภูมิศาสตร์ & สถานที่</h4>
-            <p style="font-size: 12px; line-height: 1.5; color: var(--text-muted);">${escapeHtml(loreDetails.geography)}</p>
-          </div>
-        ` : ''}
-
-        ${loreDetails.magic_rules ? `
-          <div style="background: var(--bg-card); border: 1px solid var(--border-card); border-radius: var(--radius-md); padding: 12px;">
-            <h4 style="font-size: 13px; font-weight: 700; color: var(--text-main); margin-bottom: 4px;"><i class="fa-solid fa-bolt" style="color: var(--accent-amber);"></i> ระบบเจตจำนง (Will) & กฎพลัง</h4>
-            <p style="font-size: 12px; line-height: 1.5; color: var(--text-muted);">${escapeHtml(loreDetails.magic_rules)}</p>
-          </div>
-        ` : ''}
-
-        ${loreDetails.factions ? `
-          <div style="background: var(--bg-card); border: 1px solid var(--border-card); border-radius: var(--radius-md); padding: 12px;">
-            <h4 style="font-size: 13px; font-weight: 700; color: var(--text-main); margin-bottom: 4px;"><i class="fa-solid fa-shield-halved" style="color: #f43f5e;"></i> ฝ่ายและองค์กร</h4>
-            <p style="font-size: 12px; line-height: 1.5; color: var(--text-muted);">${escapeHtml(loreDetails.factions)}</p>
-          </div>
-        ` : ''}
-
-        ${loreDetails.custom_lore ? `
-          <div style="background: var(--bg-card); border: 1px solid var(--border-card); border-radius: var(--radius-md); padding: 12px;">
-            <h4 style="font-size: 13px; font-weight: 700; color: var(--text-main); margin-bottom: 4px;"><i class="fa-solid fa-scroll" style="color: #34d399;"></i> กฎ Canon & ธรรมเนียม</h4>
-            <p style="font-size: 12px; line-height: 1.5; color: var(--text-muted);">${escapeHtml(loreDetails.custom_lore)}</p>
-          </div>
-        ` : ''}
-      </div>
-    </div>
-  `;
-
-  // Render entire Drawer Body with Tab Bar
+  // Render Full Codex Container
   Elements.drawers.codexContent.innerHTML = `
-    <div class="codex-tab-bar">
-      <button type="button" class="codex-tab-btn ${activeCodexTab === 'social' ? 'active' : ''}" data-tab="social">
+    <div class="codex-tabs-header">
+      <button class="codex-tab-btn ${activeCodexTab === 'social' ? 'active' : ''}" data-tab="social">
         <i class="fa-solid fa-users"></i> ความสัมพันธ์ (${allNpcs.length})
       </button>
-      <button type="button" class="codex-tab-btn ${activeCodexTab === 'protagonist' ? 'active' : ''}" data-tab="protagonist">
-        <i class="fa-solid fa-user"></i> ตัวคุณ (${escapeHtml(character.name.split(' ')[0])})
-      </button>
-      <button type="button" class="codex-tab-btn ${activeCodexTab === 'world' ? 'active' : ''}" data-tab="world">
-        <i class="fa-solid fa-globe"></i> ข้อมูลโลก
+      <button class="codex-tab-btn ${activeCodexTab === 'protagonist' ? 'active' : ''}" data-tab="protagonist">
+        <i class="fa-solid fa-user-astronaut"></i> ตัวคุณ (${escapeHtml(character.name.split(' ')[0])})
       </button>
     </div>
-
     ${tabSocialHtml}
     ${tabProtagonistHtml}
-    ${tabWorldHtml}
   `;
 
-  // Add click listeners to drawer tabs
+  // Bind tab switching
   Elements.drawers.codexContent.querySelectorAll('.codex-tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       activeCodexTab = btn.dataset.tab;
@@ -1240,23 +1528,21 @@ function renderInventoryDrawer() {
   Elements.drawers.inventoryList.innerHTML = '';
 
   if (items.length === 0) {
-    Elements.drawers.inventoryList.innerHTML = `
-      <div style="text-align: center; padding: 20px; color: var(--text-dim);">ไม่มีไอเทมในกระเป๋า</div>
-    `;
+    Elements.drawers.inventoryList.innerHTML = `<span style="font-size: 13px; color: var(--text-dim);">ไม่มีไอเทมในกระเป๋า</span>`;
     return;
   }
 
   items.forEach((item, idx) => {
-    const el = document.createElement('div');
-    el.className = 'inv-item';
-    el.innerHTML = `
-      <span><i class="fa-solid fa-cube" style="color: var(--accent-amber); margin-right: 8px;"></i> ${escapeHtml(item)}</span>
-      <button class="btn btn-ghost btn-sm btn-remove-item" data-idx="${idx}" title="ทิ้งไอเทม">&times;</button>
+    const itemEl = document.createElement('div');
+    itemEl.className = 'inventory-item';
+    itemEl.innerHTML = `
+      <span><i class="fa-solid fa-cube" style="color: var(--accent-amber); margin-right: 6px;"></i> ${escapeHtml(item)}</span>
+      <button class="btn-remove-item" data-idx="${idx}" title="ทิ้งไอเทมนี้"><i class="fa-solid fa-xmark"></i></button>
     `;
-    Elements.drawers.inventoryList.appendChild(el);
+    Elements.drawers.inventoryList.appendChild(itemEl);
   });
 
-  document.querySelectorAll('.btn-remove-item').forEach(btn => {
+  Elements.drawers.inventoryList.querySelectorAll('.btn-remove-item').forEach(btn => {
     btn.addEventListener('click', async () => {
       const idx = parseInt(btn.dataset.idx, 10);
       State.activeSlot.inventory.splice(idx, 1);
@@ -1276,10 +1562,9 @@ function renderPresetDrawer() {
   Elements.drawers.presetPov.value = preset.pronoun_pov || '';
   Elements.drawers.presetCustomInst.value = preset.custom_instructions || '';
   
-  const tokens = preset.max_response_tokens || 500;
+  const tokens = preset.max_response_tokens || 800;
   Elements.drawers.presetTokens.value = tokens;
   Elements.drawers.presetTokensVal.innerText = `${tokens} tokens`;
-
   updateChipActiveState(tokens);
 }
 
@@ -1293,181 +1578,58 @@ function updateChipActiveState(tokens) {
   });
 }
 
-const AI_PROVIDERS = {
-  deepseek: {
-    name: 'DeepSeek Official',
-    baseURL: 'https://api.deepseek.com',
-    defaultModel: 'deepseek-chat',
-    keyPlaceholder: 'sk-... (ใส่ DeepSeek API Key)',
-    keyLabel: 'DeepSeek API Key',
-    hintText: 'โมเดลที่เลือก: <code>deepseek-chat</code> (V3 ตอบไว/เล่าเรื่องลื่นไหล)',
-    baseURLHint: 'สำหรับ DeepSeek: <code>https://api.deepseek.com</code>'
-  },
-  qwen: {
-    name: 'Qwen (DashScope / Alibaba)',
-    baseURL: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
-    defaultModel: 'qwen-max',
-    keyPlaceholder: 'sk-... (ใส่ DashScope Qwen Key)',
-    keyLabel: 'Alibaba DashScope API Key',
-    hintText: 'โมเดลที่เลือก: <code>qwen-max</code> (เรือธง สมองฉลาดขั้นสูงสุด)',
-    baseURLHint: 'สำหรับ Qwen: <code>https://dashscope-intl.aliyuncs.com/compatible-mode/v1</code> หรือ <code>https://dashscope.aliyuncs.com/compatible-mode/v1</code>'
-  },
-  openrouter: {
-    name: 'OpenRouter',
-    baseURL: 'https://openrouter.ai/api/v1',
-    defaultModel: 'deepseek/deepseek-chat',
-    keyPlaceholder: 'sk-or-v1-... (ใส่ OpenRouter Key)',
-    keyLabel: 'OpenRouter API Key',
-    hintText: 'โมเดลที่เลือก: <code>deepseek/deepseek-chat</code> (OpenRouter)',
-    baseURLHint: 'สำหรับ OpenRouter: <code>https://openrouter.ai/api/v1</code>'
-  },
-  siliconflow: {
-    name: 'SiliconFlow',
-    baseURL: 'https://api.siliconflow.cn/v1',
-    defaultModel: 'deepseek-ai/DeepSeek-V3',
-    keyPlaceholder: 'sk-... (ใส่ SiliconFlow Key)',
-    keyLabel: 'SiliconFlow API Key',
-    hintText: 'โมเดลที่เลือก: <code>deepseek-ai/DeepSeek-V3</code> (SiliconFlow)',
-    baseURLHint: 'สำหรับ SiliconFlow: <code>https://api.siliconflow.cn/v1</code>'
-  },
-  custom: {
-    name: 'Custom Endpoint',
-    baseURL: '',
-    defaultModel: '',
-    keyPlaceholder: 'sk-... (ใส่ Custom API Key)',
-    keyLabel: 'Custom API Key',
-    hintText: 'กำหนดชื่อโมเดลและ Base URL ตามที่คุณต้องการ (รองรับ OpenAI Compatible ทุกตัว)',
-    baseURLHint: 'ระบุ Base URL เช่น <code>http://localhost:11434/v1</code> หรือคลาวด์ของคุณ'
-  }
-};
-
 function populateSettings(settings) {
   if (!settings) return;
-  const currentKey = settings.apiKey || '';
-  const currentModel = settings.model || 'deepseek-chat';
-  const currentBaseURL = settings.baseURL || 'https://api.deepseek.com';
-
-  if (Elements.drawers.apiKey) Elements.drawers.apiKey.value = currentKey;
-  if (Elements.drawers.modelName) Elements.drawers.modelName.value = currentModel;
-  if (Elements.drawers.baseURL) Elements.drawers.baseURL.value = currentBaseURL;
-  if (Elements.drawers.temperature) {
-    Elements.drawers.temperature.value = settings.temperature !== undefined ? settings.temperature : 0.85;
-    if (Elements.drawers.tempVal) Elements.drawers.tempVal.innerText = settings.temperature !== undefined ? settings.temperature : 0.85;
-  }
-  
-  const tokens = settings.maxTokens || 500;
-  if (Elements.drawers.globalTokens) Elements.drawers.globalTokens.value = tokens;
-  if (Elements.drawers.globalTokensVal) Elements.drawers.globalTokensVal.innerText = tokens;
-
-  // Auto-detect provider
-  let detectedProvider = 'deepseek';
-  const lowerBase = currentBaseURL.toLowerCase();
-  const lowerModel = currentModel.toLowerCase();
-  if (lowerBase.includes('dashscope') || lowerModel.startsWith('qwen')) {
-    detectedProvider = 'qwen';
-  } else if (lowerBase.includes('openrouter')) {
-    detectedProvider = 'openrouter';
-  } else if (lowerBase.includes('siliconflow')) {
-    detectedProvider = 'siliconflow';
-  } else if (!lowerBase.includes('deepseek')) {
-    detectedProvider = 'custom';
-  }
-
-  // Update provider chips UI
-  document.querySelectorAll('.btn-provider-chip').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.provider === detectedProvider);
-  });
-
-  const pConfig = AI_PROVIDERS[detectedProvider] || AI_PROVIDERS.custom;
-  if (Elements.drawers.labelApiKey) Elements.drawers.labelApiKey.innerText = pConfig.keyLabel;
-  if (Elements.drawers.apiKey && !currentKey) Elements.drawers.apiKey.placeholder = pConfig.keyPlaceholder;
-
-  // Sync Dropdown
-  if (Elements.drawers.selectModelPreset) {
-    const matchedOption = Array.from(Elements.drawers.selectModelPreset.options).find(opt => opt.value === currentModel);
-    Elements.drawers.selectModelPreset.value = matchedOption ? currentModel : 'custom';
-  }
-
-  if (Elements.drawers.modelHintText) {
-    Elements.drawers.modelHintText.innerHTML = `โมเดลที่เลือก: <code>${escapeHtml(currentModel)}</code>`;
+  Elements.drawers.apiKey.value = settings.apiKey || '';
+  Elements.drawers.baseURL.value = settings.baseURL || 'https://api.deepseek.com';
+  Elements.drawers.modelName.value = settings.model || 'deepseek-chat';
+  if (Elements.drawers.refereeModel) {
+    Elements.drawers.refereeModel.value = settings.refereeModel || 'deepseek-v4-flash';
   }
 
   if (Elements.drawers.headerApiDot) {
-    if (currentKey && currentKey.trim()) {
-      Elements.drawers.headerApiDot.className = 'api-status-dot green';
-      Elements.drawers.headerApiDot.title = `AI Model: ${currentModel} (เชื่อมต่อแล้ว)`;
-    } else {
-      Elements.drawers.headerApiDot.className = 'api-status-dot red';
-      Elements.drawers.headerApiDot.title = 'ยังไม่ได้ตั้งค่า API Key';
-    }
+    Elements.drawers.headerApiDot.className = settings.apiKey ? 'api-status-dot green' : 'api-status-dot red';
+    Elements.drawers.headerApiDot.title = settings.apiKey ? `AI Model: ${settings.model}` : 'ยังไม่ได้ตั้งค่า API Key';
   }
 }
 
 // ============================================================================
-// EVENT LISTENERS & MODAL CONTROLS
+// EVENT LISTENERS SETUP
 // ============================================================================
 function setupEventListeners() {
   // Navigation
   document.getElementById('btn-home')?.addEventListener('click', () => {
-    if (Elements.browse.searchInput) Elements.browse.searchInput.value = '';
-    document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
-    document.querySelector('.filter-pill[data-tag="all"]')?.classList.add('active');
-    renderWorldsList(State.worlds);
     switchView('view-browse');
   });
+
   Elements.slots.btnBack?.addEventListener('click', () => {
-    if (Elements.browse.searchInput) Elements.browse.searchInput.value = '';
-    document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
-    document.querySelector('.filter-pill[data-tag="all"]')?.classList.add('active');
-    renderWorldsList(State.worlds);
     switchView('view-browse');
   });
+
   Elements.slots.btnNewSlot?.addEventListener('click', createNewSlotHandler);
 
-  // DO / SAY Toggle Mode
+  // Interaction Mode
   Elements.story.btnModeDo?.addEventListener('click', () => setInteractionMode('Do'));
   Elements.story.btnModeSay?.addEventListener('click', () => setInteractionMode('Say'));
 
-  // Story Input & Sending (Mobile & Desktop Friendly)
+  // Chat Send Turn
   Elements.story.btnSend?.addEventListener('click', handleSendTurn);
   Elements.story.input?.addEventListener('keydown', (e) => {
-    if (e.isComposing) return;
-    const isMobile = window.innerWidth <= 768;
-    if (!isMobile && e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSendTurn();
     }
   });
 
-  // Auto-resize textarea
-  Elements.story.input?.addEventListener('input', () => {
-    Elements.story.input.style.height = 'auto';
-    const newHeight = Math.max(38, Math.min(140, Elements.story.input.scrollHeight));
-    Elements.story.input.style.height = newHeight + 'px';
-  });
-
-  // Focus event on mobile: Auto scroll into view
-  Elements.story.input?.addEventListener('focus', () => {
-    setTimeout(() => {
-      scrollToBottom();
-      Elements.story.input?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-    }, 250);
-  });
-
-  // Floating Quick-Summon Type Button (Mobile)
+  // Floating Type Button (Mobile)
   document.getElementById('btn-floating-type')?.addEventListener('click', () => {
-    if (Elements.story.input) {
-      Elements.story.input.focus();
-      scrollToBottom();
-      Elements.story.input.scrollIntoView({ behavior: 'smooth', block: 'end' });
-    }
+    Elements.story.input?.focus();
+    scrollToBottom();
   });
 
-  // Quick Action Buttons
-  Elements.story.btnRegen?.addEventListener('click', handleRegenerate);
-  Elements.story.btnUndo?.addEventListener('click', handleUndo);
-
-  // Drawers Toggle
+  // Story Room Header Action Buttons
+  document.getElementById('btn-open-memory')?.addEventListener('click', openMemoryDrawer);
+  document.getElementById('btn-open-lorebook')?.addEventListener('click', openLorebookDrawer);
   document.getElementById('btn-open-codex')?.addEventListener('click', () => openDrawer('drawer-codex'));
   document.getElementById('btn-open-inventory')?.addEventListener('click', () => openDrawer('drawer-inventory'));
   document.getElementById('btn-open-preset')?.addEventListener('click', () => openDrawer('drawer-preset'));
@@ -1478,12 +1640,56 @@ function setupEventListeners() {
   });
   document.getElementById('btn-open-settings')?.addEventListener('click', () => openDrawer('drawer-settings'));
 
-  // Drawer Close Buttons & Overlays
+  // Header Avatar Click -> Open Avatar Customizer
+  document.getElementById('btn-header-avatar-click')?.addEventListener('click', () => openAvatarModal());
+
+  // Quick Action Buttons
+  Elements.story.btnRegen?.addEventListener('click', handleRegenerate);
+  Elements.story.btnUndo?.addEventListener('click', handleUndo);
+
+  // Drawer Close Buttons
   document.querySelectorAll('[data-close]').forEach(btn => {
     btn.addEventListener('click', () => {
       const drawerId = btn.dataset.close;
       closeDrawer(drawerId);
     });
+  });
+
+  // Memory Drawer Tab Switching
+  document.querySelectorAll('[data-memtab]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('[data-memtab]').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.memory-tab-pane').forEach(p => p.style.display = 'none');
+
+      btn.classList.add('active');
+      const tabId = btn.dataset.memtab;
+      if (tabId === 'mem-episodic') document.getElementById('mem-tab-episodic').style.display = 'block';
+      if (tabId === 'mem-facts') document.getElementById('mem-tab-facts').style.display = 'block';
+      if (tabId === 'mem-summary') document.getElementById('mem-tab-summary').style.display = 'block';
+    });
+  });
+
+  // Add Manual Fact in Memory Drawer
+  document.getElementById('btn-add-manual-fact')?.addEventListener('click', async () => {
+    const sub = document.getElementById('input-fact-subject')?.value.trim();
+    const pred = document.getElementById('input-fact-pred')?.value.trim();
+    const obj = document.getElementById('input-fact-obj')?.value.trim();
+
+    if (!sub || !pred || !obj) {
+      showToast('กรุณากรอก Subject, Predicate และ Object ให้ครบ', 'info');
+      return;
+    }
+
+    try {
+      await API.addFact(State.activeSlot.id, { subject: sub, predicate: pred, object: obj });
+      document.getElementById('input-fact-subject').value = '';
+      document.getElementById('input-fact-pred').value = '';
+      document.getElementById('input-fact-obj').value = '';
+      showToast('เพิ่มข้อเท็จจริงสำเร็จ!', 'success');
+      openMemoryDrawer();
+    } catch (err) {
+      showToast('เพิ่มข้อเท็จจริงล้มเหลว: ' + err.message, 'error');
+    }
   });
 
   // Preset Tokens Slider & Chips
@@ -1553,13 +1759,10 @@ function setupEventListeners() {
     showToast('เพิ่มไอเทมเรียบร้อย', 'success');
   });
 
-  // ==========================================
-  // AI BRAIN & SETTINGS HANDLERS (DEEPSEEK / QWEN)
-  // ==========================================
   // Provider Chips Selection
-  document.querySelectorAll('.btn-provider-chip').forEach(chip => {
+  document.querySelectorAll('.provider-chip').forEach(chip => {
     chip.addEventListener('click', () => {
-      document.querySelectorAll('.btn-provider-chip').forEach(c => c.classList.remove('active'));
+      document.querySelectorAll('.provider-chip').forEach(c => c.classList.remove('active'));
       chip.classList.add('active');
 
       const providerKey = chip.dataset.provider;
@@ -1571,68 +1774,20 @@ function setupEventListeners() {
       }
       if (providerKey !== 'custom' && provider.defaultModel) {
         Elements.drawers.modelName.value = provider.defaultModel;
-        if (Elements.drawers.selectModelPreset) {
-          Elements.drawers.selectModelPreset.value = provider.defaultModel;
-        }
       }
       if (Elements.drawers.apiKey) {
         Elements.drawers.apiKey.placeholder = provider.keyPlaceholder;
       }
-      if (Elements.drawers.labelApiKey) {
-        Elements.drawers.labelApiKey.innerText = provider.keyLabel;
-      }
-      if (Elements.drawers.modelHintText) {
-        Elements.drawers.modelHintText.innerHTML = provider.hintText;
-      }
-      if (Elements.drawers.baseURLHint) {
-        Elements.drawers.baseURLHint.innerHTML = provider.baseURLHint;
-      }
     });
   });
 
-  // Model Preset Selector
-  Elements.drawers.selectModelPreset?.addEventListener('change', (e) => {
-    const val = e.target.value;
-    if (val !== 'custom') {
-      Elements.drawers.modelName.value = val;
-      if (Elements.drawers.modelHintText) {
-        Elements.drawers.modelHintText.innerHTML = `โมเดลที่เลือก: <code>${escapeHtml(val)}</code>`;
-      }
-    } else {
-      Elements.drawers.modelName.focus();
-      if (Elements.drawers.modelHintText) {
-        Elements.drawers.modelHintText.innerHTML = `✏️ กำหนดชื่อโมเดลเองในช่องด้านล่าง`;
-      }
-    }
-  });
-
-  // Model Name Input Sync
-  Elements.drawers.modelName?.addEventListener('input', (e) => {
-    const val = e.target.value.trim();
-    if (Elements.drawers.selectModelPreset) {
-      const matchedOption = Array.from(Elements.drawers.selectModelPreset.options).find(opt => opt.value === val);
-      Elements.drawers.selectModelPreset.value = matchedOption ? val : 'custom';
-    }
-    if (Elements.drawers.modelHintText) {
-      Elements.drawers.modelHintText.innerHTML = `โมเดลที่เลือก: <code>${escapeHtml(val || 'ยังไม่ได้ระบุ')}</code>`;
-    }
-  });
-
-  // Global Tokens & Temperature Sliders
-  Elements.drawers.globalTokens?.addEventListener('input', (e) => {
-    Elements.drawers.globalTokensVal.innerText = e.target.value;
-  });
-
-  Elements.drawers.temperature?.addEventListener('input', (e) => {
-    Elements.drawers.tempVal.innerText = e.target.value;
-  });
-
+  // Toggle API Key Visibility
   Elements.drawers.btnToggleKey?.addEventListener('click', () => {
     const type = Elements.drawers.apiKey.type === 'password' ? 'text' : 'password';
     Elements.drawers.apiKey.type = type;
   });
 
-  // TEST & VERIFY API KEY BUTTON
+  // Test & Verify API Key
   Elements.drawers.btnTestApiKey?.addEventListener('click', async () => {
     const apiKey = Elements.drawers.apiKey.value.trim();
     const model = Elements.drawers.modelName.value.trim() || 'deepseek-chat';
@@ -1640,116 +1795,165 @@ function setupEventListeners() {
 
     if (!apiKey) {
       showToast('กรุณากรอก API Key ก่อนทดสอบ', 'error');
-      if (Elements.drawers.apiVerifyBox) {
-        Elements.drawers.apiVerifyBox.style.display = 'flex';
-        Elements.drawers.apiVerifyBox.className = 'api-verify-box error';
-        Elements.drawers.verifyHeaderRow.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> <span id="verify-status-title">ยังไม่ได้ระบุ API Key</span>';
-        Elements.drawers.verifyDetailText.innerText = 'กรุณาใส่ API Key ที่ถูกต้องแล้วกดทดสอบอีกครั้ง';
-      }
-      if (Elements.drawers.headerApiDot) Elements.drawers.headerApiDot.className = 'api-status-dot red';
       return;
     }
 
-    // Loading State
     Elements.drawers.btnTestApiKey.disabled = true;
-    Elements.drawers.btnTestApiKey.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> กำลังทดสอบเชื่อมต่อโมเดล...';
-    if (Elements.drawers.apiVerifyBox) {
-      Elements.drawers.apiVerifyBox.style.display = 'flex';
-      Elements.drawers.apiVerifyBox.className = 'api-verify-box loading';
-      Elements.drawers.verifyHeaderRow.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> <span id="verify-status-title">กำลังทดสอบส่ง Ping ไปยัง AI...</span>';
-      Elements.drawers.verifyDetailText.innerText = `กำลังส่งคำขอไปที่ ${baseURL} (โมเดล: ${model})...`;
-    }
+    Elements.drawers.btnTestApiKey.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังทดสอบเชื่อมต่อ...';
+    Elements.drawers.testResult.style.display = 'block';
+    Elements.drawers.testResult.innerHTML = `กำลังทดสอบส่งข้อความไปยัง ${baseURL}...`;
 
     try {
       const res = await API.verifySettings({ apiKey, baseURL, model });
-      
-      // Success (GREEN)
-      if (Elements.drawers.apiVerifyBox) {
-        Elements.drawers.apiVerifyBox.className = 'api-verify-box success';
-        Elements.drawers.verifyHeaderRow.innerHTML = `<i class="fa-solid fa-circle-check"></i> <span id="verify-status-title">เชื่อมต่อสำเร็จ! (ความเร็ว: ${res.latencyMs} ms)</span>`;
-        Elements.drawers.verifyDetailText.innerHTML = `✅ <strong>AI ตอบกลับ:</strong> "${escapeHtml(res.reply)}" | <strong>โมเดล:</strong> ${escapeHtml(res.model)} | <strong>สถานะ:</strong> พร้อมใช้งาน 100%`;
-      }
-      if (Elements.drawers.headerApiDot) {
-        Elements.drawers.headerApiDot.className = 'api-status-dot green';
-        Elements.drawers.headerApiDot.title = `AI Model: ${model} (เชื่อมต่อแล้ว)`;
-      }
+      Elements.drawers.testResult.innerHTML = `
+        <div style="color: var(--accent-emerald); font-weight: 600;">
+          <i class="fa-solid fa-circle-check"></i> เชื่อมต่อสำเร็จ! (${res.latencyMs} ms)
+        </div>
+        <div style="font-size: 12px; margin-top: 4px; color: var(--text-muted);">
+          AI ตอบกลับ: "${escapeHtml(res.reply)}" | โมเดล: ${escapeHtml(res.model)}
+        </div>
+      `;
+      if (Elements.drawers.headerApiDot) Elements.drawers.headerApiDot.className = 'api-status-dot green';
+      showToast(`เชื่อมต่อโมเดล ${model} สำเร็จ!`, 'success');
 
-      showToast(`เชื่อมต่อโมเดล ${model} สำเร็จ (${res.latencyMs}ms)`, 'success');
-
-      // Auto-save verified settings
-      const settings = {
-        apiKey: apiKey,
-        model: model,
-        baseURL: baseURL,
-        temperature: parseFloat(Elements.drawers.temperature.value),
-        maxTokens: parseInt(Elements.drawers.globalTokens.value, 10)
-      };
-      await API.saveSettings(settings);
+      // Auto save
+      await API.saveSettings({
+        apiKey,
+        model,
+        baseURL,
+        refereeModel: Elements.drawers.refereeModel?.value.trim() || 'deepseek-v4-flash'
+      });
     } catch (err) {
-      // Error (RED)
-      if (Elements.drawers.apiVerifyBox) {
-        Elements.drawers.apiVerifyBox.className = 'api-verify-box error';
-        Elements.drawers.verifyHeaderRow.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> <span id="verify-status-title">การเชื่อมต่อล้มเหลว! (Error)</span>`;
-        Elements.drawers.verifyDetailText.innerText = err.message || 'ไม่สามารถเชื่อมต่อกับ AI Provider ได้ กรุณาตรวจสอบ API Key, URL หรือโมเดล';
-      }
+      Elements.drawers.testResult.innerHTML = `
+        <div style="color: #ef4444; font-weight: 600;">
+          <i class="fa-solid fa-triangle-exclamation"></i> การเชื่อมต่อล้มเหลว
+        </div>
+        <div style="font-size: 12px; margin-top: 4px; color: #f87171;">
+          ${escapeHtml(err.message)}
+        </div>
+      `;
       if (Elements.drawers.headerApiDot) Elements.drawers.headerApiDot.className = 'api-status-dot red';
-      showToast('การเชื่อมต่อล้มเหลว: ' + err.message, 'error');
+      showToast('เชื่อมต่อไม่สำเร็จ: ' + err.message, 'error');
     } finally {
       Elements.drawers.btnTestApiKey.disabled = false;
-      Elements.drawers.btnTestApiKey.innerHTML = '<i class="fa-solid fa-bolt" style="color: var(--accent-amber);"></i> ทดสอบเชื่อมต่อโมเดล & ส่งข้อความ (Verify Connection)';
+      Elements.drawers.btnTestApiKey.innerHTML = '<i class="fa-solid fa-network-wired"></i> ทดสอบการเชื่อมต่อ (Verify Connection)';
     }
   });
 
+  // Save Settings
   Elements.drawers.btnSaveSettings?.addEventListener('click', async () => {
     const settings = {
       apiKey: Elements.drawers.apiKey.value.trim(),
       model: Elements.drawers.modelName.value.trim(),
-      baseURL: Elements.drawers.baseURL.value.trim(),
-      temperature: parseFloat(Elements.drawers.temperature.value),
-      maxTokens: parseInt(Elements.drawers.globalTokens.value, 10)
+      refereeModel: Elements.drawers.refereeModel?.value.trim() || 'deepseek-v4-flash',
+      baseURL: Elements.drawers.baseURL.value.trim()
     };
 
     try {
       await API.saveSettings(settings);
       if (Elements.drawers.headerApiDot) {
         Elements.drawers.headerApiDot.className = settings.apiKey ? 'api-status-dot green' : 'api-status-dot red';
-        Elements.drawers.headerApiDot.title = settings.apiKey ? `AI Model: ${settings.model}` : 'ยังไม่ได้ตั้งค่า API Key';
       }
-      showToast(`บันทึกการตั้งค่าโมเดล ${settings.model} สำเร็จ`, 'success');
+      showToast(`บันทึกการตั้งค่า AI สำเร็จ`, 'success');
       closeDrawer('drawer-settings');
     } catch (err) {
       showToast('บันทึกการตั้งค่าไม่สำเร็จ: ' + err.message, 'error');
     }
   });
 
-  // ==========================================
-  // ADVANCED WORLD CREATION & TABS
-  // ==========================================
-  Elements.browse.btnCreateWorld?.addEventListener('click', () => {
-    Elements.advModal.modal.style.display = 'flex';
+  // Avatar Customizer Events
+  Elements.modals.avatarUrlInput?.addEventListener('input', (e) => {
+    const url = e.target.value.trim();
+    if (url) {
+      Elements.modals.avatarPreview.src = url;
+      State.selectedAvatarUrl = url;
+    }
   });
 
-  Elements.advModal.btnClose?.addEventListener('click', () => {
-    Elements.advModal.modal.style.display = 'none';
+  Elements.modals.avatarFileInput?.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (re) => {
+        const base64 = re.target.result;
+        Elements.modals.avatarPreview.src = base64;
+        Elements.modals.avatarUrlInput.value = base64;
+        State.selectedAvatarUrl = base64;
+      };
+      reader.readAsDataURL(file);
+    }
   });
 
-  Elements.advModal.btnCancel?.addEventListener('click', () => {
-    Elements.advModal.modal.style.display = 'none';
+  Elements.modals.btnSaveAvatar?.addEventListener('click', async () => {
+    const newAvatar = State.selectedAvatarUrl || Elements.modals.avatarUrlInput.value.trim();
+    if (!newAvatar) {
+      showToast('กรุณาระบุ URL หรือเลือกรูปภาพ', 'info');
+      return;
+    }
+
+    if (!State.activeSlot) {
+      showToast('กรุณาเปิด Save Slot ก่อนเปลี่ยนรูป', 'info');
+      return;
+    }
+
+    try {
+      await API.updateSlotAvatar(State.activeSlot.id, newAvatar, State.avatarTargetCharId);
+      
+      if (!State.avatarTargetCharId || State.avatarTargetCharId === State.activeCharacter.id) {
+        State.activeSlot.custom_avatar = newAvatar;
+        State.activeCharacter.avatar = newAvatar;
+        Elements.header.charAvatar.src = newAvatar;
+      } else if (State.activeSlot.roster) {
+        const npc = State.activeSlot.roster.find(r => r.id === State.avatarTargetCharId);
+        if (npc) npc.avatar = newAvatar;
+      }
+
+      Elements.modals.avatar.style.display = 'none';
+      renderCodexDrawer();
+      showToast('บันทึกรูปภาพตัวละครเรียบร้อย!', 'success');
+    } catch (err) {
+      showToast('เปลี่ยนรูปภาพไม่สำเร็จ: ' + err.message, 'error');
+    }
   });
 
-  // Modal tab buttons
-  document.querySelectorAll('.modal-tab-btn').forEach(btn => {
+  Elements.modals.btnCloseAvatar?.addEventListener('click', () => Elements.modals.avatar.style.display = 'none');
+  Elements.modals.btnCancelAvatar?.addEventListener('click', () => Elements.modals.avatar.style.display = 'none');
+
+  // Edit Message Events
+  Elements.modals.btnSaveEditMsg?.addEventListener('click', async () => {
+    const newText = Elements.modals.editMsgInput.value.trim();
+    if (!newText || !State.editingMsgId || !State.activeSlot) return;
+
+    const msg = State.activeSlot.history.find(m => m.id === State.editingMsgId);
+    if (msg) {
+      msg.content = newText;
+      renderChatMessages(State.activeSlot.history);
+      await API.updatePreset(State.activeSlot.id, State.activeSlot.style_preset);
+      showToast('แก้ไขข้อความเรียบร้อย', 'success');
+    }
+    Elements.modals.editMsg.style.display = 'none';
+  });
+
+  Elements.modals.btnCloseEditMsg?.addEventListener('click', () => Elements.modals.editMsg.style.display = 'none');
+  Elements.modals.btnCancelEditMsg?.addEventListener('click', () => Elements.modals.editMsg.style.display = 'none');
+
+  // Detailed World Creator Modal
+  Elements.browse.btnCreateWorld?.addEventListener('click', () => Elements.advModal.modal.style.display = 'flex');
+  Elements.advModal.btnClose?.addEventListener('click', () => Elements.advModal.modal.style.display = 'none');
+  Elements.advModal.btnCancel?.addEventListener('click', () => Elements.advModal.modal.style.display = 'none');
+
+  document.querySelectorAll('.creator-tabs-nav .tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.modal-tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.creator-tabs-nav .tab-btn').forEach(b => b.classList.remove('active'));
       document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
 
       btn.classList.add('active');
-      const targetTab = document.getElementById(btn.dataset.tab);
-      if (targetTab) targetTab.classList.add('active');
+      const target = document.getElementById(btn.dataset.tab);
+      if (target) target.classList.add('active');
     });
   });
 
-  // AI Generate Prologue button in creation modal
+  // AI Gen Prologue in World Creator
   Elements.advModal.btnAiGenPrologue?.addEventListener('click', async () => {
     const charName = Elements.advModal.charName.value.trim();
     if (!charName) {
@@ -1759,19 +1963,18 @@ function setupEventListeners() {
 
     const btn = Elements.advModal.btnAiGenPrologue;
     btn.disabled = true;
-    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> AI กำลังแต่งบทนำ...';
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังแต่งบทนำ...';
 
     try {
       const res = await API.generateAIPrologue({
         worldName: Elements.advModal.worldName.value.trim(),
         worldDesc: Elements.advModal.worldDesc.value.trim(),
         characterName: charName,
-        charDesc: Elements.advModal.charDesc.value.trim(),
+        charDesc: Elements.advModal.charRole.value.trim(),
         charPersonality: Elements.advModal.charTags.value.split(',').map(t => t.trim()).filter(Boolean)
       });
-
       Elements.advModal.charPrologue.value = res.prologue;
-      showToast('AI แต่งบทนำเปิดฉากสำเร็จ!', 'success');
+      showToast('AI แต่งบทนำสำเร็จ!', 'success');
     } catch (err) {
       showToast('แต่งบทนำไม่สำเร็จ: ' + err.message, 'error');
     } finally {
@@ -1798,29 +2001,16 @@ function setupEventListeners() {
       lore_details: {
         geography: Elements.advModal.loreGeo.value.trim(),
         magic_rules: Elements.advModal.loreMagic.value.trim(),
-        factions: Elements.advModal.loreFactions.value.trim()
+        factions: Elements.advModal.loreFactions.value.trim(),
+        custom_lore: Elements.advModal.loreCustom.value.trim()
       }
     };
 
-    const invList = Elements.advModal.charInv.value.split(',').map(i => i.trim()).filter(Boolean);
-    const tagsList = Elements.advModal.charTags.value.split(',').map(t => t.trim()).filter(Boolean);
-
-    const codexNotes = [];
-    if (Elements.advModal.sec1Title.value.trim()) {
-      codexNotes.push({
-        id: 'sec_' + Date.now(),
-        title: Elements.advModal.sec1Title.value.trim(),
-        content: Elements.advModal.sec1Content.value.trim(),
-        hint: Elements.advModal.sec1Hint.value.trim() || 'พูดคุยและสร้างความผูกพัน',
-        unlocked: false
-      });
-    }
-
     const charPayload = {
       name: charName,
-      avatar: Elements.advModal.charAvatar.value.trim() || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=600&auto=format&fit=crop',
-      short_desc: Elements.advModal.charDesc.value.trim(),
-      personality_tags: tagsList,
+      short_desc: Elements.advModal.charRole.value.trim(),
+      avatar: Elements.advModal.charAvatar.value.trim() || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=400&auto=format&fit=crop',
+      personality_tags: Elements.advModal.charTags.value.split(',').map(t => t.trim()).filter(Boolean),
       opening_prologue: Elements.advModal.charPrologue.value.trim(),
       static_profile: {
         history: Elements.advModal.charHistory.value.trim(),
@@ -1832,370 +2022,69 @@ function setupEventListeners() {
           perception: parseInt(Elements.advModal.statPer.value, 10) || 10
         }
       },
-      initial_inventory: invList.length > 0 ? invList : ['เหรียญเงิน 100 เหรียญ', 'สัมภาระเดินทาง'],
-      codex_notes: codexNotes
+      initial_inventory: Elements.advModal.charInv.value.split(',').map(i => i.trim()).filter(Boolean),
+      codex_notes: Elements.advModal.sec1Title.value.trim() ? [{
+        id: 'sec_1',
+        title: Elements.advModal.sec1Title.value.trim(),
+        content: Elements.advModal.sec1Content.value.trim(),
+        hint: Elements.advModal.sec1Hint.value.trim() || 'พูดคุยเปิดใจ',
+        unlocked: false
+      }] : []
     };
 
     try {
       await API.createAdvancedWorld(worldPayload, [charPayload]);
       Elements.advModal.modal.style.display = 'none';
-      showToast('สร้างโลกและตัวละครละเอียดสำเร็จ!', 'success');
+      showToast(`สร้างโลก "${worldName}" และตัวละคร "${charName}" สำเร็จ!`, 'success');
       await loadInitialData();
     } catch (err) {
-      showToast('บันทึกโลกไม่สำเร็จ: ' + err.message, 'error');
+      showToast('สร้างโลกล้มเหลว: ' + err.message, 'error');
     }
   });
 
-  // ==========================================
-  // WORLDBOOK IMPORT & AI ANALYZER (2-STEP SYSTEM)
-  // ==========================================
-  function switchWbStep(step) {
-    if (step === 'preview') {
-      Elements.wbModal.stepUpload.style.display = 'none';
-      Elements.wbModal.footerUpload.style.display = 'none';
-      Elements.wbModal.stepPreview.style.display = 'block';
-      Elements.wbModal.footerPreview.style.display = 'flex';
-      if (Elements.wbModal.title) Elements.wbModal.title.innerText = '📝 ตรวจสอบและแก้ไข Worldbook ก่อนยืนยัน';
-      if (Elements.wbModal.subtitle) Elements.wbModal.subtitle.innerText = 'แก้ไขข้อมูลโลก ลอเร่ และตัวละครที่ AI สกัดได้ตามต้องการ แล้วกดยืนยันการสร้าง';
-    } else {
-      Elements.wbModal.stepUpload.style.display = 'block';
-      Elements.wbModal.footerUpload.style.display = 'flex';
-      Elements.wbModal.stepPreview.style.display = 'none';
-      Elements.wbModal.footerPreview.style.display = 'none';
-      if (Elements.wbModal.title) Elements.wbModal.title.innerText = 'นำเข้า Worldbook / Lorebook อัตโนมัติด้วย AI';
-      if (Elements.wbModal.subtitle) Elements.wbModal.subtitle.innerText = 'อัปโหลดไฟล์เดียวปึ้ง AI จะสกัดข้อมูลโลก ระบบพลัง และตัวละครให้แก้ไขก่อนยืนยัน';
-    }
-  }
+  // Worldbook Import Modal
+  Elements.browse.btnImportWorldbook?.addEventListener('click', () => Elements.wbModal.modal.style.display = 'flex');
+  Elements.wbModal.btnClose?.addEventListener('click', () => Elements.wbModal.modal.style.display = 'none');
+  Elements.wbModal.btnCancel?.addEventListener('click', () => Elements.wbModal.modal.style.display = 'none');
 
-  function renderWbCharactersPreview(chars = []) {
-    if (!Elements.wbModal.charsContainer) return;
-    Elements.wbModal.charsContainer.innerHTML = '';
-    Elements.wbModal.charsCount.innerText = chars.length;
-
-    chars.forEach((c, idx) => {
-      const card = createWbCharPreviewCard(c, idx);
-      Elements.wbModal.charsContainer.appendChild(card);
-    });
-  }
-
-  function createWbCharPreviewCard(char, idx) {
-    const card = document.createElement('div');
-    card.className = 'char-preview-card';
-    card.dataset.idx = idx;
-
-    const name = char.name || `ตัวละครที่ ${idx + 1}`;
-    const role = char.role || 'นักเรียน / นักผจญภัย';
-    const avatar = char.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=400&auto=format&fit=crop';
-    const desc = char.short_desc || '';
-    const tags = Array.isArray(char.personality_tags) ? char.personality_tags.join(', ') : (char.personality_tags || '');
-    const history = char.static_profile?.history || char.history || '';
-    const stats = char.static_profile?.base_stats || char.base_stats || { strength: 10, agility: 10, intelligence: 10, charisma: 10, perception: 10 };
-    const inv = Array.isArray(char.initial_inventory) ? char.initial_inventory.join(', ') : (char.initial_inventory || '');
-    const codex = Array.isArray(char.codex_notes) ? char.codex_notes : [];
-    const sec1 = codex[0] || { title: '', content: '', hint: '' };
-    const sec2 = codex[1] || { title: '', content: '', hint: '' };
-    const prologue = char.opening_prologue || char.prologue || '';
-
-    card.innerHTML = `
-      <div class="char-preview-header">
-        <div class="char-preview-header-left">
-          <img src="${escapeHtml(avatar)}" alt="${escapeHtml(name)}" class="char-preview-avatar-thumb" onerror="this.src='https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=400&auto=format&fit=crop'">
-          <div>
-            <span class="char-preview-title">${escapeHtml(name)}</span>
-            <span class="char-preview-role-badge">${escapeHtml(role)}</span>
-          </div>
-        </div>
-        <div class="char-preview-header-actions">
-          <button type="button" class="btn-icon-subtle btn-toggle-body" title="ย่อ/ขยาย"><i class="fa-solid fa-chevron-down"></i></button>
-          <button type="button" class="btn-icon-subtle btn-delete-char" title="ลบตัวละครนี้" style="color: var(--status-bad);"><i class="fa-solid fa-trash-can"></i></button>
-        </div>
-      </div>
-      <div class="char-preview-body">
-        <div class="form-grid-2">
-          <div class="form-group">
-            <label>ชื่อตัวละคร *</label>
-            <input type="text" class="form-input wb-char-name" value="${escapeHtml(name)}" placeholder="ชื่อตัวละคร">
-          </div>
-          <div class="form-group">
-            <label>บทบาท / ฉายา</label>
-            <input type="text" class="form-input wb-char-role" value="${escapeHtml(role)}" placeholder="เช่น ผู้ใช้ Will สายลม / นักเรียนทุน">
-          </div>
-        </div>
-        <div class="form-grid-2">
-          <div class="form-group">
-            <label>รูปภาพอวตาร (Avatar URL)</label>
-            <input type="text" class="form-input wb-char-avatar" value="${escapeHtml(avatar)}" placeholder="https://...">
-          </div>
-          <div class="form-group">
-            <label>แท็กบุคลิกภาพ (คั่นด้วยจุลภาค)</label>
-            <input type="text" class="form-input wb-char-tags" value="${escapeHtml(tags)}" placeholder="ฉลาด, คิดมาก, กตัญญู">
-          </div>
-        </div>
-        <div class="form-group">
-          <label>คำบรรยายสั้น (Bio / Short Desc)</label>
-          <textarea rows="2" class="form-textarea wb-char-desc" placeholder="คำบรรยายสั้นๆ">${escapeHtml(desc)}</textarea>
-        </div>
-        <div class="form-group">
-          <label>ประวัติความเป็นมาเชิงลึก (Lore & Backstory)</label>
-          <textarea rows="2" class="form-textarea wb-char-history" placeholder="ประวัติชีวิต ปมหลัง และเป้าหมาย">${escapeHtml(history)}</textarea>
-        </div>
-        <div class="form-group">
-          <label>ค่าพลังพื้นฐาน (Base Stats D20):</label>
-          <div class="stats-compact-grid">
-            <div class="stat-compact-box">
-              <span>💪 STR</span>
-              <input type="number" class="wb-stat-str" value="${stats.strength || 10}" min="1" max="30">
-            </div>
-            <div class="stat-compact-box">
-              <span>🏃 AGI</span>
-              <input type="number" class="wb-stat-agi" value="${stats.agility || 10}" min="1" max="30">
-            </div>
-            <div class="stat-compact-box">
-              <span>🧠 INT</span>
-              <input type="number" class="wb-stat-int" value="${stats.intelligence || 10}" min="1" max="30">
-            </div>
-            <div class="stat-compact-box">
-              <span>✨ CHA</span>
-              <input type="number" class="wb-stat-cha" value="${stats.charisma || 10}" min="1" max="30">
-            </div>
-            <div class="stat-compact-box">
-              <span>👁️ PER</span>
-              <input type="number" class="wb-stat-per" value="${stats.perception || 10}" min="1" max="30">
-            </div>
-          </div>
-        </div>
-        <div class="form-group">
-          <label>ไอเทมเริ่มต้น (Initial Inventory คั่นด้วยจุลภาค)</label>
-          <input type="text" class="form-input wb-char-inv" value="${escapeHtml(inv)}" placeholder="ไอเทมเริ่มต้น">
-        </div>
-        <div class="form-grid-2">
-          <div class="form-group">
-            <label>บันทึกลับที่ 1 (Title / Hint)</label>
-            <input type="text" class="form-input wb-char-sec1-title" value="${escapeHtml(sec1.title || '')}" placeholder="หัวข้อความลับ" style="margin-bottom: 4px;">
-            <input type="text" class="form-input wb-char-sec1-hint" value="${escapeHtml(sec1.unlock_hint || sec1.hint || '')}" placeholder="คำใบ้ปลดล็อก">
-            <textarea rows="2" class="form-textarea wb-char-sec1-content" placeholder="เนื้อหาความลับที่แท้จริง" style="margin-top: 4px;">${escapeHtml(sec1.content || '')}</textarea>
-          </div>
-          <div class="form-group">
-            <label>บันทึกลับที่ 2 (Title / Hint)</label>
-            <input type="text" class="form-input wb-char-sec2-title" value="${escapeHtml(sec2.title || '')}" placeholder="หัวข้อความลับที่ 2" style="margin-bottom: 4px;">
-            <input type="text" class="form-input wb-char-sec2-hint" value="${escapeHtml(sec2.unlock_hint || sec2.hint || '')}" placeholder="คำใบ้ปลดล็อกที่ 2">
-            <textarea rows="2" class="form-textarea wb-char-sec2-content" placeholder="เนื้อหาความลับที่ 2" style="margin-top: 4px;">${escapeHtml(sec2.content || '')}</textarea>
-          </div>
-        </div>
-        <div class="form-group">
-          <label>บทนำเปิดฉากการเดินทาง (Opening Prologue)</label>
-          <textarea rows="4" class="form-textarea wb-char-prologue" placeholder="บทนำเปิดฉากวรรณกรรมเข้มข้น...">${escapeHtml(prologue)}</textarea>
-        </div>
-      </div>
-    `;
-
-    // Toggle collapse
-    const header = card.querySelector('.char-preview-header');
-    const body = card.querySelector('.char-preview-body');
-    const btnToggle = card.querySelector('.btn-toggle-body');
-    header.addEventListener('click', (e) => {
-      if (e.target.closest('.btn-delete-char')) return;
-      body.classList.toggle('collapsed');
-      btnToggle.innerHTML = body.classList.contains('collapsed') ? '<i class="fa-solid fa-chevron-right"></i>' : '<i class="fa-solid fa-chevron-down"></i>';
-    });
-
-    // Delete character card
-    const btnDelete = card.querySelector('.btn-delete-char');
-    btnDelete.addEventListener('click', (e) => {
-      e.stopPropagation();
-      card.remove();
-      const remaining = Elements.wbModal.charsContainer.querySelectorAll('.char-preview-card').length;
-      Elements.wbModal.charsCount.innerText = remaining;
-    });
-
-    // Live update header name on name input
-    const inputName = card.querySelector('.wb-char-name');
-    const headerTitle = card.querySelector('.char-preview-title');
-    inputName.addEventListener('input', () => {
-      headerTitle.innerText = inputName.value.trim() || 'ตัวละครใหม่';
-    });
-
-    return card;
-  }
-
-  function getWbEditedCharacters() {
-    const cards = Elements.wbModal.charsContainer.querySelectorAll('.char-preview-card');
-    const chars = [];
-
-    cards.forEach(card => {
-      const name = card.querySelector('.wb-char-name')?.value.trim();
-      if (!name) return;
-
-      const role = card.querySelector('.wb-char-role')?.value.trim() || '';
-      const avatar = card.querySelector('.wb-char-avatar')?.value.trim() || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=400&auto=format&fit=crop';
-      const shortDesc = card.querySelector('.wb-char-desc')?.value.trim() || '';
-      const tags = (card.querySelector('.wb-char-tags')?.value || '').split(',').map(t => t.trim()).filter(Boolean);
-      const history = card.querySelector('.wb-char-history')?.value.trim() || '';
-      const stats = {
-        strength: parseInt(card.querySelector('.wb-stat-str')?.value, 10) || 10,
-        agility: parseInt(card.querySelector('.wb-stat-agi')?.value, 10) || 10,
-        intelligence: parseInt(card.querySelector('.wb-stat-int')?.value, 10) || 10,
-        charisma: parseInt(card.querySelector('.wb-stat-cha')?.value, 10) || 10,
-        perception: parseInt(card.querySelector('.wb-stat-per')?.value, 10) || 10
-      };
-      const inv = (card.querySelector('.wb-char-inv')?.value || '').split(',').map(i => i.trim()).filter(Boolean);
-      
-      const codexNotes = [];
-      const sec1Title = card.querySelector('.wb-char-sec1-title')?.value.trim();
-      const sec1Content = card.querySelector('.wb-char-sec1-content')?.value.trim();
-      const sec1Hint = card.querySelector('.wb-char-sec1-hint')?.value.trim();
-      if (sec1Title || sec1Content) {
-        codexNotes.push({ id: 'sec_' + Date.now() + '_1', title: sec1Title || 'ความลับ', content: sec1Content || '', hint: sec1Hint || 'พูดคุยและผูกพัน', unlocked: false });
-      }
-
-      const sec2Title = card.querySelector('.wb-char-sec2-title')?.value.trim();
-      const sec2Content = card.querySelector('.wb-char-sec2-content')?.value.trim();
-      const sec2Hint = card.querySelector('.wb-char-sec2-hint')?.value.trim();
-      if (sec2Title || sec2Content) {
-        codexNotes.push({ id: 'sec_' + Date.now() + '_2', title: sec2Title || 'ความลับที่ 2', content: sec2Content || '', hint: sec2Hint || 'เปิดใจในสถานการณ์วิกฤต', unlocked: false });
-      }
-
-      const prologue = card.querySelector('.wb-char-prologue')?.value.trim() || '';
-
-      chars.push({
-        name,
-        role,
-        avatar,
-        short_desc: shortDesc,
-        personality_tags: tags,
-        opening_prologue: prologue,
-        static_profile: { history, base_stats: stats },
-        dynamic_state: { relationship_value: 0, relationship_status: 'เป็นกลาง', current_emotion: 'ปกติ' },
-        initial_inventory: inv.length > 0 ? inv : ['กระเป๋าสัมภาระเดินทาง', 'เหรียญเงิน 50 เหรียญ'],
-        codex_notes: codexNotes
-      });
-    });
-
-    return chars;
-  }
-
-  // Open / Close modal
-  Elements.browse.btnImportWorldbook?.addEventListener('click', () => {
-    switchWbStep('upload');
-    Elements.wbModal.modal.style.display = 'flex';
-  });
-
-  Elements.wbModal.btnClose?.addEventListener('click', () => {
-    Elements.wbModal.modal.style.display = 'none';
-  });
-
-  Elements.wbModal.btnCancel?.addEventListener('click', () => {
-    Elements.wbModal.modal.style.display = 'none';
-  });
-
-  Elements.wbModal.btnCancelPreview?.addEventListener('click', () => {
-    Elements.wbModal.modal.style.display = 'none';
-  });
-
-  Elements.wbModal.btnBackToUpload?.addEventListener('click', () => {
-    switchWbStep('upload');
-  });
-
-  // Add new blank character in preview
-  Elements.wbModal.btnAddChar?.addEventListener('click', () => {
-    const currentCount = Elements.wbModal.charsContainer.querySelectorAll('.char-preview-card').length;
-    const newCard = createWbCharPreviewCard({
-      name: `ตัวละครใหม่ ${currentCount + 1}`,
-      role: 'นักเรียน / วีรชน',
-      personality_tags: ['จิตใจดี', 'มุ่งมั่น'],
-      base_stats: { strength: 12, agility: 12, intelligence: 12, charisma: 12, perception: 12 },
-      initial_inventory: ['สัมภาระเดินทาง']
-    }, currentCount);
-    Elements.wbModal.charsContainer.appendChild(newCard);
-    Elements.wbModal.charsCount.innerText = currentCount + 1;
-    newCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  });
-
-  // Dropzone file upload
-  Elements.wbModal.dropzone?.addEventListener('click', () => {
-    Elements.wbModal.fileInput.click();
-  });
-
+  Elements.wbModal.dropzone?.addEventListener('click', () => Elements.wbModal.fileInput?.click());
   Elements.wbModal.fileInput?.addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = (event) => {
-        Elements.wbModal.rawInput.value = event.target.result;
-        showToast(`โหลดไฟล์ ${file.name} เรียบร้อย`, 'info');
+      reader.onload = (re) => {
+        Elements.wbModal.rawInput.value = re.target.result;
+        showToast(`โหลดไฟล์ ${file.name} สำเร็จ`, 'info');
       };
       reader.readAsText(file);
     }
   });
 
-  // Drag and drop support
-  Elements.wbModal.dropzone?.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    Elements.wbModal.dropzone.style.borderColor = 'var(--accent-amber)';
-  });
-
-  Elements.wbModal.dropzone?.addEventListener('dragleave', () => {
-    Elements.wbModal.dropzone.style.borderColor = 'var(--border-card)';
-  });
-
-  Elements.wbModal.dropzone?.addEventListener('drop', (e) => {
-    e.preventDefault();
-    Elements.wbModal.dropzone.style.borderColor = 'var(--border-card)';
-    const file = e.dataTransfer.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        Elements.wbModal.rawInput.value = event.target.result;
-        showToast(`โหลดไฟล์ ${file.name} เรียบร้อย`, 'info');
-      };
-      reader.readAsText(file);
-    }
-  });
-
-  // Start AI Worldbook Analysis -> Switch to Live Editable Preview
   Elements.wbModal.btnStartAnalyze?.addEventListener('click', async () => {
     const raw = Elements.wbModal.rawInput.value.trim();
     if (!raw) {
-      showToast('กรุณาวางเนื้อหาหรืออัปโหลดไฟล์ Worldbook ก่อน', 'info');
+      showToast('กรุณาอัปโหลดไฟล์หรือวางเนื้อหา Worldbook', 'info');
       return;
     }
 
-    Elements.wbModal.analyzingBanner.style.display = 'flex';
     Elements.wbModal.btnStartAnalyze.disabled = true;
+    Elements.wbModal.analyzingBanner.style.display = 'flex';
 
     try {
-      const parsed = await API.analyzeWorldbook(raw);
-      
-      // Populate World Details
-      if (parsed.world) {
-        Elements.wbModal.previewWorldName.value = parsed.world.name || '';
-        Elements.wbModal.previewWorldTag.value = parsed.world.tag || 'Hero Academy';
-        Elements.wbModal.previewWorldDesc.value = parsed.world.description || '';
-        Elements.wbModal.previewWorldCover.value = parsed.world.cover_image || 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1200&auto=format&fit=crop';
-        if (parsed.world.lore_details) {
-          Elements.wbModal.previewLoreGeo.value = parsed.world.lore_details.geography || '';
-          Elements.wbModal.previewLoreMagic.value = parsed.world.lore_details.magic_rules || '';
-          Elements.wbModal.previewLoreFactions.value = parsed.world.lore_details.factions || '';
-          Elements.wbModal.previewLoreCustom.value = parsed.world.lore_details.custom_lore || '';
-        }
-      }
-
-      // Populate Characters Preview List
-      const charsList = parsed.characters || (parsed.character ? [parsed.character] : []);
-      renderWbCharactersPreview(charsList);
-
-      // Switch to Step 2 Preview
+      const result = await API.analyzeWorldbook(raw);
+      populateWbPreview(result);
       switchWbStep('preview');
-      showToast('AI สกัดข้อมูล Worldbook เรียบร้อย! ตรวจสอบและแก้ไขก่อนกดยืนยัน', 'success');
+      showToast('AI วิเคราะห์และสกัดข้อมูลสำเร็จ!', 'success');
     } catch (err) {
-      showToast('การวิเคราะห์ Worldbook ล้มเหลว: ' + err.message, 'error');
+      showToast('วิเคราะห์ Worldbook ล้มเหลว: ' + err.message, 'error');
     } finally {
-      Elements.wbModal.analyzingBanner.style.display = 'none';
       Elements.wbModal.btnStartAnalyze.disabled = false;
+      Elements.wbModal.analyzingBanner.style.display = 'none';
     }
   });
 
-  // CONFIRM & SAVE WORLDBOOK TO DATABASE
+  Elements.wbModal.btnBackToUpload?.addEventListener('click', () => switchWbStep('upload'));
+
   Elements.wbModal.btnConfirmSave?.addEventListener('click', async () => {
     const worldName = Elements.wbModal.previewWorldName.value.trim();
     if (!worldName) {
@@ -2222,10 +2111,6 @@ function setupEventListeners() {
       }
     };
 
-    const btn = Elements.wbModal.btnConfirmSave;
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังบันทึกโลกและตัวละคร...';
-
     try {
       await API.createAdvancedWorld(worldPayload, characters);
       Elements.wbModal.modal.style.display = 'none';
@@ -2234,9 +2119,6 @@ function setupEventListeners() {
       await loadInitialData();
     } catch (err) {
       showToast('บันทึก Worldbook ไม่สำเร็จ: ' + err.message, 'error');
-    } finally {
-      btn.disabled = false;
-      btn.innerHTML = '<i class="fa-solid fa-circle-check"></i> ✅ ยืนยันการสร้าง Worldbook ลงในเกม';
     }
   });
 
@@ -2258,6 +2140,108 @@ function setupEventListeners() {
   });
 }
 
+function switchWbStep(step) {
+  if (step === 'upload') {
+    Elements.wbModal.stepUpload.style.display = 'block';
+    Elements.wbModal.stepPreview.style.display = 'none';
+    Elements.wbModal.footerUpload.style.display = 'flex';
+    Elements.wbModal.footerPreview.style.display = 'none';
+  } else {
+    Elements.wbModal.stepUpload.style.display = 'none';
+    Elements.wbModal.stepPreview.style.display = 'block';
+    Elements.wbModal.footerUpload.style.display = 'none';
+    Elements.wbModal.footerPreview.style.display = 'flex';
+  }
+}
+
+function populateWbPreview(data) {
+  const w = data.world || {};
+  Elements.wbModal.previewWorldName.value = w.name || '';
+  Elements.wbModal.previewWorldTag.value = w.tag || 'Hero Academy';
+  Elements.wbModal.previewWorldDesc.value = w.description || '';
+  Elements.wbModal.previewWorldCover.value = w.cover_image || '';
+  Elements.wbModal.previewLoreGeo.value = w.lore_details?.geography || '';
+  Elements.wbModal.previewLoreMagic.value = w.lore_details?.magic_rules || '';
+  Elements.wbModal.previewLoreFactions.value = w.lore_details?.factions || '';
+  Elements.wbModal.previewLoreCustom.value = w.lore_details?.custom_lore || '';
+
+  renderWbCharactersPreview(data.characters || []);
+}
+
+function renderWbCharactersPreview(chars) {
+  const container = Elements.wbModal.charsPreviewContainer;
+  container.innerHTML = '';
+  Elements.wbModal.charsCountSpan.innerText = chars.length;
+
+  chars.forEach((c, idx) => {
+    const card = document.createElement('div');
+    card.className = 'char-preview-edit-card';
+    card.dataset.idx = idx;
+
+    const stats = c.static_profile?.base_stats || { strength: 10, agility: 10, intelligence: 10, charisma: 10, perception: 10 };
+    const sec1 = (c.codex_notes && c.codex_notes[0]) || { title: '', content: '', hint: '' };
+
+    card.innerHTML = `
+      <div class="char-preview-edit-header">
+        <span style="font-weight: 700; color: var(--accent-amber);"><i class="fa-solid fa-user-tag"></i> ตัวละคร #${idx + 1}</span>
+        <button type="button" class="btn-remove-preview-char" style="background:transparent; border:none; color:#ef4444; cursor:pointer;" title="ลบตัวละครนี้"><i class="fa-solid fa-trash"></i></button>
+      </div>
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label>ชื่อตัวละคร *</label>
+          <input type="text" class="wb-char-name form-input" value="${escapeHtml(c.name || '')}">
+        </div>
+        <div class="form-group">
+          <label>บทบาท / ฉายา</label>
+          <input type="text" class="wb-char-role form-input" value="${escapeHtml(c.role || c.short_desc || '')}">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>ประวัติย่อ</label>
+        <textarea class="wb-char-history form-textarea" rows="2">${escapeHtml(c.static_profile?.history || c.history || '')}</textarea>
+      </div>
+      <div class="form-group">
+        <label>บทนำเปิดฉาก (Prologue)</label>
+        <textarea class="wb-char-prologue form-textarea" rows="3">${escapeHtml(c.opening_prologue || '')}</textarea>
+      </div>
+    `;
+
+    card.querySelector('.btn-remove-preview-char')?.addEventListener('click', () => {
+      card.remove();
+      Elements.wbModal.charsCountSpan.innerText = container.querySelectorAll('.char-preview-edit-card').length;
+    });
+
+    container.appendChild(card);
+  });
+}
+
+function getWbEditedCharacters() {
+  const cards = Elements.wbModal.charsPreviewContainer.querySelectorAll('.char-preview-edit-card');
+  const chars = [];
+
+  cards.forEach(card => {
+    const name = card.querySelector('.wb-char-name')?.value.trim();
+    if (name) {
+      chars.push({
+        name,
+        role: card.querySelector('.wb-char-role')?.value.trim() || '',
+        short_desc: card.querySelector('.wb-char-role')?.value.trim() || '',
+        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=400&auto=format&fit=crop',
+        personality_tags: ['มีมิติ', 'น่าค้นหา'],
+        opening_prologue: card.querySelector('.wb-char-prologue')?.value.trim() || '',
+        static_profile: {
+          history: card.querySelector('.wb-char-history')?.value.trim() || '',
+          base_stats: { strength: 10, agility: 10, intelligence: 10, charisma: 10, perception: 10 }
+        },
+        initial_inventory: ['เหรียญเงิน 50 เหรียญ', 'สัมภาระพกพา'],
+        codex_notes: []
+      });
+    }
+  });
+
+  return chars;
+}
+
 function setInteractionMode(mode) {
   State.currentMode = mode;
   if (mode === 'Do') {
@@ -2265,13 +2249,13 @@ function setInteractionMode(mode) {
     Elements.story.btnModeSay.classList.remove('active');
     Elements.story.modeLabel.innerText = 'Do';
     Elements.story.modeIndicator.innerHTML = '<i class="fa-solid fa-hand-fist"></i> <span>Do</span>';
-    Elements.story.input.placeholder = 'ระบุการกระทำทางกายภาพ/ยุทธวิธีของคุณ... เช่น "ชักดาบสั้นออกมาป้องกันตัว และมองหาทางหนีทีไล่"';
+    Elements.story.input.placeholder = 'ระบุการกระทำทางกายภาพ/ยุทธวิธีของคุณ... เช่น "ชักมีดพกออกมาป้องกันตัว และสแกนหาจุดอ่อน"';
   } else {
     Elements.story.btnModeSay.classList.add('active');
     Elements.story.btnModeDo.classList.remove('active');
     Elements.story.modeLabel.innerText = 'Say';
     Elements.story.modeIndicator.innerHTML = '<i class="fa-solid fa-comment-dots"></i> <span>Say</span>';
-    Elements.story.input.placeholder = 'พิมพ์คำพูดหรือแสดงความรู้สึกของคุณ... เช่น "เราไม่ได้มาที่นี่เพื่อเป็นศัตรูกับเจ้า วางดาบลงก่อนเถอะ"';
+    Elements.story.input.placeholder = 'พิมพ์คำพูดหรือแสดงความรู้สึกของคุณ... เช่น "สวัสดีครับ มีอะไรให้ผมช่วยแนะนำไหม?"';
   }
 }
 

@@ -1,5 +1,6 @@
 /**
- * LONG VOYAGE — API CLIENT MODULE
+ * LONG VOYAGE — API CLIENT MODULE (2.0.0)
+ * Modern AI Roleplay Engine Architecture
  */
 
 const API = {
@@ -44,6 +45,9 @@ const API = {
       body: { world, characters }
     });
   },
+  getWorldLorebook(worldId) {
+    return this.request(`/api/lorebook/${worldId}`);
+  },
 
   // Worldbook & AI Utilities
   analyzeWorldbook(content) {
@@ -66,6 +70,12 @@ const API = {
   createCharacter(payload) {
     return this.request('/api/characters', { method: 'POST', body: payload });
   },
+  updateCharacter(characterId, payload) {
+    return this.request(`/api/characters/${characterId}`, {
+      method: 'PUT',
+      body: payload
+    });
+  },
 
   // Save Slots (Folder-Based Isolated Saves)
   getSlots(worldId, characterId) {
@@ -79,6 +89,33 @@ const API = {
   },
   deleteSlot(slotId) {
     return this.request(`/api/slots/${slotId}`, { method: 'DELETE' });
+  },
+  updateSlotAvatar(slotId, avatar, characterId = null) {
+    return this.request(`/api/slots/${slotId}/character/avatar`, {
+      method: 'PUT',
+      body: { avatar, character_id: characterId }
+    });
+  },
+
+  // Memory & Facts Management
+  getSlotMemories(slotId) {
+    return this.request(`/api/slots/${slotId}/memories`);
+  },
+  deleteMemory(slotId, memId) {
+    return this.request(`/api/slots/${slotId}/memories/${memId}`, {
+      method: 'DELETE'
+    });
+  },
+  addFact(slotId, fact) {
+    return this.request(`/api/slots/${slotId}/facts`, {
+      method: 'POST',
+      body: fact
+    });
+  },
+  deleteFact(slotId, factId) {
+    return this.request(`/api/slots/${slotId}/facts/${factId}`, {
+      method: 'DELETE'
+    });
   },
 
   // Dynamic NPC Discovery

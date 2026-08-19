@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Long Voyage — การเดินทางอันยาวนาน | Khuiai Roleplay Engine</title>
-  <meta name="description" content="Long Voyage: Self-hosted Interactive Story & Roleplay Engine with Khuiai-style UI, 4-Stage DeepSeek AI Pipeline, Detailed Worldbook & Fast Response Engine">
+  <title>Long Voyage — การเดินทางอันยาวนาน | Modern AI Roleplay Engine</title>
+  <meta name="description" content="Long Voyage 2.0: Self-hosted Interactive Story & Roleplay Engine with 9-Tier Memory Architecture, Fate D20 Engine, Lorebook & Character Customizer">
   
   <!-- Google Fonts: Prompt & Inter for high-quality Thai typography -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,6 +18,9 @@
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body class="dark-theme">
+  <!-- Ambient Particle Glow Overlay -->
+  <div id="ambient-particles" class="ambient-particles"></div>
+
   <div id="app" class="app-wrapper">
 
     <!-- TOP HEADER -->
@@ -27,14 +30,17 @@
           <i class="fa-solid fa-compass-drafting logo-icon"></i>
           <div class="logo-text">
             <span class="logo-title">Long Voyage</span>
-            <span class="logo-sub">การเดินทางอันยาวนาน</span>
+            <span class="logo-sub">การเดินทางอันยาวนาน 2.0</span>
           </div>
         </button>
       </div>
 
       <div class="header-center" id="header-story-info" style="display: none;">
-        <div class="active-character-badge">
-          <img id="header-char-avatar" class="mini-avatar" src="" alt="Avatar">
+        <div class="active-character-badge" id="btn-header-avatar-click" title="คลิกเพื่อเปลี่ยนรูปตัวละคร">
+          <div class="avatar-wrapper">
+            <img id="header-char-avatar" class="mini-avatar" src="" alt="Avatar">
+            <span class="avatar-edit-badge"><i class="fa-solid fa-camera"></i></span>
+          </div>
           <div class="char-meta">
             <span id="header-char-name" class="char-name">ชื่อตัวละคร</span>
             <span id="header-emotion-pill" class="emotion-pill">😊 ปกติ</span>
@@ -54,7 +60,15 @@
       <div class="header-right">
         <!-- Story Room Action Buttons (Only visible when playing) -->
         <div id="story-header-actions" class="story-actions" style="display: none;">
-          <button id="btn-open-codex" class="icon-btn" title="Codex / ข้อมูลตัวละครและความลับ">
+          <button id="btn-open-memory" class="icon-btn" title="ระบบความจำ 9 ระดับ & Fact Inspector">
+            <i class="fa-solid fa-brain"></i>
+            <span class="btn-text-responsive">ความจำ</span>
+          </button>
+          <button id="btn-open-lorebook" class="icon-btn" title="สำรวจโลก & แผนที่ (Lorebook)">
+            <i class="fa-solid fa-map-location-dot"></i>
+            <span class="btn-text-responsive">ลอเร่/แผนที่</span>
+          </button>
+          <button id="btn-open-codex" class="icon-btn" title="Codex / ความลับและ Roster">
             <i class="fa-solid fa-book-bookmark"></i>
             <span class="btn-text-responsive">Codex</span>
           </button>
@@ -62,9 +76,9 @@
             <i class="fa-solid fa-box-archive"></i>
             <span class="btn-text-responsive">กระเป๋า</span>
           </button>
-          <button id="btn-open-preset" class="icon-btn" title="สไตล์การเล่าเรื่อง & Emotional Prompt">
+          <button id="btn-open-preset" class="icon-btn" title="สไตล์การเล่าเรื่อง & Speed Control">
             <i class="fa-solid fa-masks-theater"></i>
-            <span class="btn-text-responsive">สไตล์/โทเค็น</span>
+            <span class="btn-text-responsive">สไตล์</span>
           </button>
           <button id="btn-open-slots" class="icon-btn" title="เปลี่ยน Save Slot">
             <i class="fa-solid fa-floppy-disk"></i>
@@ -72,9 +86,9 @@
           </button>
         </div>
 
-        <button id="btn-open-settings" class="icon-btn" title="ตั้งค่า DeepSeek API & ตรวจสอบการเชื่อมต่อ">
+        <button id="btn-open-settings" class="icon-btn" title="ตั้งค่า AI Multi-Provider & ตรวจสอบการเชื่อมต่อ">
           <span id="header-api-dot" class="api-status-dot amber"></span>
-          <span class="btn-text-responsive">API Key</span>
+          <span class="btn-text-responsive">AI Setup</span>
         </button>
       </div>
     </header>
@@ -89,7 +103,7 @@
         <div class="browse-hero">
           <div class="hero-content">
             <h1 class="hero-title">เลือกโลกและตัวละคร เพื่อเริ่มการเดินทาง</h1>
-            <p class="hero-desc">สัมผัสประสบการณ์ Roleplay เชิงลึก สไตล์ Khuiai พร้อมระบบ Fate D20, บทนำเปิดฉาก และเครื่องมือสร้าง Worldbook ละเอียด</p>
+            <p class="hero-desc">สัมผัสประสบการณ์ Roleplay เชิงลึก สไตล์ Khuiai พร้อมระบบความจำ 9 ระดับ, Fate D20 Engine, บทนำเปิดฉาก และ Worldbook ละเอียด</p>
             
             <div class="browse-controls">
               <div class="search-input-wrap">
@@ -154,7 +168,7 @@
             </div>
             
             <div id="messages-list" class="messages-list">
-              <!-- Messages generated dynamically (Includes Opening Prologue) -->
+              <!-- Messages generated dynamically -->
             </div>
 
             <!-- Typing indicator with stage status -->
@@ -164,7 +178,7 @@
                 <span class="dot"></span>
                 <span class="dot"></span>
               </div>
-              <span class="typing-text" id="typing-status-text">DeepSeek กำลังประมวลผลการตัดสินและเล่าเรื่อง...</span>
+              <span class="typing-text" id="typing-status-text">AI กำลังประมวลผลความจำและการเล่าเรื่อง...</span>
             </div>
           </div>
 
@@ -173,7 +187,7 @@
             
             <!-- Turn Actions Pill Toolbar -->
             <div class="action-toolbar">
-              <!-- DO / SAY TOGGLE SWITCH (CORE MECHANIC) -->
+              <!-- DO / SAY TOGGLE SWITCH -->
               <div class="mode-toggle-group">
                 <button type="button" class="mode-btn" id="btn-mode-do" data-mode="Do" title="การกระทำทางกายภาพ / ยุทธวิธี">
                   <i class="fa-solid fa-hand-fist"></i>
@@ -191,6 +205,12 @@
                   <label class="dice-checkbox-label" title="เปิด/ปิดการทอยลูกเต๋า D20 อัตโนมัติ">
                     <input type="checkbox" id="chk-enable-dice" checked>
                     <span class="dice-badge-btn"><i class="fa-solid fa-dice-d20"></i> Fate D20</span>
+                  </label>
+                </div>
+                <div class="typewriter-toggle-wrap">
+                  <label class="dice-checkbox-label" title="เปิด/ปิดเอฟเฟกต์พิมพ์ดีดลื่นไหล (Typewriter Effect)">
+                    <input type="checkbox" id="chk-enable-typewriter" checked>
+                    <span class="dice-badge-btn"><i class="fa-solid fa-keyboard"></i> พิมพ์ดีด</span>
                   </label>
                 </div>
                 <button type="button" class="tool-btn" id="btn-undo-turn" title="ย้อนกลับ 1 ตา (Rollback state)">
@@ -217,7 +237,7 @@
           </div>
 
           <!-- FLOATING TYPE BUTTON (Mobile Quick-Summon) -->
-          <button id="btn-floating-type" class="floating-type-btn" title="แตะเพื่อพิมพ์ข้อความ (Mobile Quick Access)">
+          <button id="btn-floating-type" class="floating-type-btn" title="แตะเพื่อพิมพ์ข้อความ">
             <i class="fa-solid fa-pen-to-square"></i>
             <span>พิมพ์</span>
           </button>
@@ -228,10 +248,90 @@
     </main>
 
     <!-- ==================================================== -->
-    <!-- SLIDE-OUT DRAWERS & MODALS                           -->
+    <!-- SLIDE-OUT DRAWERS                                    -->
     <!-- ==================================================== -->
 
-    <!-- DRAWER 1: CODEX & CHARACTER PROFILE -->
+    <!-- DRAWER 1: MEMORY & FACT INSPECTOR (9-TIER ARCHITECTURE) -->
+    <div id="drawer-memory" class="side-drawer">
+      <div class="drawer-overlay" data-close="drawer-memory"></div>
+      <div class="drawer-panel drawer-panel-wide">
+        <div class="drawer-header">
+          <div class="drawer-title">
+            <i class="fa-solid fa-brain" style="color: var(--accent-amber);"></i>
+            <span>Memory Engine & Fact Inspector</span>
+          </div>
+          <button class="drawer-close-btn" data-close="drawer-memory">&times;</button>
+        </div>
+        <div class="drawer-body">
+          <div class="memory-tabs-nav">
+            <button class="tab-btn active" data-memtab="mem-episodic"><i class="fa-solid fa-timeline"></i> 🧠 ความจำเหตุการณ์ (Episodic)</button>
+            <button class="tab-btn" data-memtab="mem-facts"><i class="fa-solid fa-thumbtack"></i> 📌 ข้อเท็จจริง (Active Facts)</button>
+            <button class="tab-btn" data-memtab="mem-summary"><i class="fa-solid fa-scroll"></i> 📜 สรุปเรื่องย่อ (Summary)</button>
+          </div>
+
+          <!-- TAB 1: EPISODIC MEMORIES -->
+          <div id="mem-tab-episodic" class="memory-tab-pane active">
+            <div class="flex-between" style="margin-bottom: 8px;">
+              <span class="section-desc" style="margin:0;">ความจำเหตุการณ์ที่ดึงผ่าน Hybrid RAG (Similarity + Recency Decay)</span>
+              <span class="badge-pill" id="mem-count-badge">0 รายการ</span>
+            </div>
+            <div id="memory-episodic-list" class="memory-cards-container">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+          <!-- TAB 2: ACTIVE FACTS (TRIPLETS) -->
+          <div id="mem-tab-facts" class="memory-tab-pane" style="display: none;">
+            <div class="flex-between" style="margin-bottom: 8px;">
+              <span class="section-desc" style="margin:0;">ข้อเท็จจริงโครงสร้าง Triplet (Subject, Predicate, Object) พร้อมระบบแก้ข้อขัดแย้ง</span>
+              <span class="badge-pill" id="facts-count-badge">0 ข้อ</span>
+            </div>
+            
+            <div class="add-fact-inline-box">
+              <div class="form-grid-3">
+                <input type="text" id="input-fact-subject" class="form-input" placeholder="Subject (เช่น Ren, Billy)">
+                <input type="text" id="input-fact-pred" class="form-input" placeholder="Predicate (เช่น weakness, loves)">
+                <input type="text" id="input-fact-obj" class="form-input" placeholder="Object (เช่น battery heat, Ina)">
+              </div>
+              <button id="btn-add-manual-fact" class="btn btn-secondary btn-sm" style="margin-top: 6px;">
+                <i class="fa-solid fa-plus"></i> เพิ่มข้อเท็จจริงใหม่
+              </button>
+            </div>
+
+            <div id="memory-facts-list" class="facts-cards-container">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+          <!-- TAB 3: ROLLING SUMMARY -->
+          <div id="mem-tab-summary" class="memory-tab-pane" style="display: none;">
+            <span class="section-desc">สรุปภาพรวมเรื่องราวแบบ Recursive Summarization ที่บีบอัดทุกๆ 8 เทิร์น</span>
+            <div class="summary-box" id="memory-rolling-summary-content">
+              กำลังโหลดสรุปเรื่องย่อ...
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DRAWER 2: INTERACTIVE LOREBOOK & WORLD MAP -->
+    <div id="drawer-lorebook" class="side-drawer">
+      <div class="drawer-overlay" data-close="drawer-lorebook"></div>
+      <div class="drawer-panel drawer-panel-wide">
+        <div class="drawer-header">
+          <div class="drawer-title">
+            <i class="fa-solid fa-map-location-dot" style="color: var(--accent-amber);"></i>
+            <span>World Lorebook & Canon Rules</span>
+          </div>
+          <button class="drawer-close-btn" data-close="drawer-lorebook">&times;</button>
+        </div>
+        <div class="drawer-body" id="drawer-lorebook-content">
+          <!-- Populated dynamically via JS -->
+        </div>
+      </div>
+    </div>
+
+    <!-- DRAWER 3: CODEX & SOCIAL ROSTER -->
     <div id="drawer-codex" class="side-drawer">
       <div class="drawer-overlay" data-close="drawer-codex"></div>
       <div class="drawer-panel">
@@ -248,7 +348,7 @@
       </div>
     </div>
 
-    <!-- DRAWER 2: INVENTORY -->
+    <!-- DRAWER 4: INVENTORY -->
     <div id="drawer-inventory" class="side-drawer">
       <div class="drawer-overlay" data-close="drawer-inventory"></div>
       <div class="drawer-panel">
@@ -272,7 +372,7 @@
       </div>
     </div>
 
-    <!-- DRAWER 3: STORYTELLER STYLE & SPEED / TOKEN CONTROL -->
+    <!-- DRAWER 5: STORYTELLER STYLE & SPEED CONTROL -->
     <div id="drawer-preset" class="side-drawer">
       <div class="drawer-overlay" data-close="drawer-preset"></div>
       <div class="drawer-panel">
@@ -285,34 +385,32 @@
         </div>
         <div class="drawer-body">
           
-          <!-- TOKEN / SPEED SETTING -->
           <div class="speed-control-card">
             <div class="speed-header">
               <label><i class="fa-solid fa-bolt" style="color: var(--accent-amber);"></i> จำกัดความยาวคำตอบ (Max Output Tokens):</label>
-              <strong id="val-preset-tokens" class="token-val-badge">500 tokens</strong>
+              <strong id="val-preset-tokens" class="token-val-badge">800 tokens</strong>
             </div>
-            <input type="range" id="input-preset-tokens" min="150" max="1500" step="50" value="500" class="form-range">
+            <input type="range" id="input-preset-tokens" min="200" max="1800" step="50" value="800" class="form-range">
             <div class="token-quick-buttons">
-              <button type="button" class="btn-token-chip" data-tokens="250">⚡ สั้น-ตอบไว (250)</button>
-              <button type="button" class="btn-token-chip active" data-tokens="500">⚖️ มาตรฐาน (500)</button>
-              <button type="button" class="btn-token-chip" data-tokens="1000">📖 ละเอียด-ยาว (1000)</button>
+              <button type="button" class="btn-token-chip" data-tokens="400">⚡ กระชับ-ไว (400)</button>
+              <button type="button" class="btn-token-chip active" data-tokens="800">⚖️ มาตรฐาน (800)</button>
+              <button type="button" class="btn-token-chip" data-tokens="1400">📖 ละเอียดลึกซึ้ง (1400)</button>
             </div>
-            <span class="form-hint">ปรับลดโทเค็นเพื่อให้ AI ตอบกลับได้อย่างรวดเร็วทันใจ</span>
           </div>
 
           <div class="form-group">
-            <label>Template สไตล์การเล่าเรื่อง (12 Official Narrative Modes จาก Master Prompt)</label>
+            <label>Template สไตล์การเล่าเรื่อง (12 Official Narrative Modes)</label>
             <select id="select-style-template" class="form-select">
               <option value="drama">🔥 ดราม่าเข้มข้น (Drama — มิติอารมณ์ลึกซึ้ง & Subtext)</option>
               <option value="warm">☀️ อบอุ่นหัวใจ (Warm — ความผูกพัน & ความหวังที่มีค่า)</option>
-              <option value="romance">💖 โรแมนซ์ลึกซึ้ง (Romance — ความใกล้ชิด & ความเปราะบาง)</option>
+              <option value="romance">💖 โรแมนซ์ลึกซึ้ง (Romance — ความใกล้ชิด Slow Burn)</option>
               <option value="dark">🌙 ดาร์กกดดัน (Dark — โลกไม่ปรานี ไร้ Plot Armor)</option>
-              <option value="comedy">😂 ขบขันมีไหวพริบ (Comedy — จังหวะและมุกตลกตามสถานการณ์)</option>
-              <option value="epic">⚡ มหากาพย์ยิ่งใหญ่ (Epic — สงคราม การเมือง ตำนาน)</option>
+              <option value="comedy">😂 ขบขันมีไหวพริบ (Comedy — จังหวะและมุกตลก)</option>
+              <option value="epic">⚡ มหากาพย์ยิ่งใหญ่ (Epic — สเกลใหญ่และการต่อสู้)</option>
               <option value="mystery">🔍 ลึกลับสืบสวน (Mystery — เบาะแส ปริศนา ลางบอกเหตุ)</option>
               <option value="horror">🩸 สยองขวัญกดดัน (Horror — ความไม่แน่นอน ความโดดเดี่ยว)</option>
-              <option value="slice_of_life">🎭 เรียบง่ายสมจริง (Slice of Life — ชีวิตประจำวันและบทสนทนา)</option>
-              <option value="adventure">⚔️ ผจญภัยแอ็กชัน (Action/Adventure — กระชับ ฉับไว ตื่นเต้น)</option>
+              <option value="slice_of_life">🎭 ชีวิตประจำวัน (Slice of Life & School)</option>
+              <option value="adventure">⚔️ ผจญภัยแอ็กชัน (Action/Adventure)</option>
               <option value="tactical">🛡️ ยุทธวิธี/สมจริงหยาบกระด้าง (Tactical & Gritty)</option>
               <option value="custom">⚙️ ปรับแต่งอิสระ (Custom Override)</option>
             </select>
@@ -350,247 +448,249 @@
       </div>
     </div>
 
-    <!-- DRAWER 4: AI BRAIN SETTINGS & API VERIFICATION (DEEPSEEK & QWEN) -->
+    <!-- DRAWER 6: AI BRAIN SETUP -->
     <div id="drawer-settings" class="side-drawer">
       <div class="drawer-overlay" data-close="drawer-settings"></div>
       <div class="drawer-panel">
         <div class="drawer-header">
           <div class="drawer-title">
-            <i class="fa-solid fa-brain" style="color: var(--accent-amber);"></i>
-            <span>ตั้งค่า AI Brain (DeepSeek & Qwen)</span>
+            <i class="fa-solid fa-robot" style="color: var(--accent-amber);"></i>
+            <span>AI Brain Setup & Multi-Provider</span>
           </div>
           <button class="drawer-close-btn" data-close="drawer-settings">&times;</button>
         </div>
         <div class="drawer-body">
-
-          <!-- 1. PROVIDER QUICK SELECTOR -->
-          <div class="form-group">
-            <label><i class="fa-solid fa-server"></i> เลือกค่าย AI (AI Provider / Ecosystem)</label>
-            <div class="provider-chips-grid" id="provider-chips-container">
-              <button type="button" class="btn-provider-chip active" data-provider="deepseek">
-                <i class="fa-solid fa-water" style="color: #3b82f6;"></i>
-                <span>DeepSeek Official</span>
-              </button>
-              <button type="button" class="btn-provider-chip" data-provider="qwen">
-                <i class="fa-solid fa-cloud" style="color: #8b5cf6;"></i>
-                <span>Qwen (DashScope)</span>
-              </button>
-              <button type="button" class="btn-provider-chip" data-provider="openrouter">
-                <i class="fa-solid fa-network-wired" style="color: #10b981;"></i>
-                <span>OpenRouter</span>
-              </button>
-              <button type="button" class="btn-provider-chip" data-provider="siliconflow">
-                <i class="fa-solid fa-bolt" style="color: #f59e0b;"></i>
-                <span>SiliconFlow</span>
-              </button>
-              <button type="button" class="btn-provider-chip" data-provider="custom">
-                <i class="fa-solid fa-gear" style="color: #94a3b8;"></i>
-                <span>Custom Endpoint</span>
-              </button>
-            </div>
-          </div>
-
-          <!-- 2. MODEL PRESET SELECTOR & INPUT -->
-          <div class="form-group">
-            <label><i class="fa-solid fa-feather-pointed" style="color: var(--primary);"></i> เลือกโมเดล AI สำหรับผู้เล่าเรื่อง (Storyteller Model)</label>
-            <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px; line-height: 1.5; background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.25); padding: 8px 12px; border-radius: var(--radius-sm);">
-              ⚡ <strong>ระบบ Dual-Model:</strong> หลังบ้าน (วิเคราะห์การกระทำ & ทอยเต๋า D20) ทำงานรวดเร็วด้วย <code>deepseek-v4-flash</code> ส่วนโมเดลที่คุณเลือกด้านล่างนี้จะถูกใช้เป็น <strong>Master Storyteller</strong> เพื่อสร้างบทบรรยายวรรณกรรมนิยายคุณภาพสูงสุด
-            </div>
-            <select id="select-model-preset" class="form-select" style="margin-bottom: 8px;">
-              <!-- Optgroup 1: DeepSeek Models -->
-              <optgroup label="🐋 DeepSeek Official Models">
-                <option value="deepseek-v4-pro" selected>👑 DeepSeek V4 Pro (deepseek-v4-pro — แนะนำสูงสุด / วรรณกรรมระดับมาสเตอร์พีซ)</option>
-                <option value="deepseek-chat">⚡ DeepSeek-V3 (deepseek-chat — เร็วและวรรณกรรมลื่นไหล)</option>
-                <option value="deepseek-reasoner">🧠 DeepSeek-R1 (deepseek-reasoner — คิดวิเคราะห์เหตุผลขั้นสูงสุด / Reasoner)</option>
-                <option value="deepseek-v4-flash">⚡ DeepSeek V4 Flash (deepseek-v4-flash — ตอบไวประหยัดโทเค็น)</option>
-                <option value="deepseek-v3">📖 DeepSeek-V3 (deepseek-v3)</option>
-              </optgroup>
-
-              <!-- Optgroup 2: Qwen (Alibaba / Tongyi Qianwen) Models -->
-              <optgroup label="🌌 Qwen Models (Alibaba / DashScope)">
-                <option value="qwen-max">👑 Qwen Max (qwen-max — เรือธง สมองฉลาดขั้นสูงสุด มิติอารมณ์ลึกซึ้ง)</option>
-                <option value="qwen-plus">⚖️ Qwen Plus (qwen-plus — สมดุล ประสิทธิภาพสูง ตอบเร็ว)</option>
-                <option value="qwen-turbo">⚡ Qwen Turbo (qwen-turbo — เร็วสายฟ้า ประหยัดโทเค็น)</option>
-                <option value="qwen-3.5-pro">🚀 Qwen 3.5 Pro (qwen-3.5-pro)</option>
-                <option value="qwen-2.5-72b-instruct">🧠 Qwen 2.5 72B Instruct (qwen-2.5-72b-instruct)</option>
-                <option value="qwen-2.5-32b-instruct">⚙️ Qwen 2.5 32B Instruct (qwen-2.5-32b-instruct)</option>
-                <option value="qwen-2.5-14b-instruct">⚡ Qwen 2.5 14B Instruct (qwen-2.5-14b-instruct)</option>
-                <option value="qwen-2.5-7b-instruct">⚡ Qwen 2.5 7B Instruct (qwen-2.5-7b-instruct)</option>
-                <option value="qwen-2.5-coder-32b-instruct">💻 Qwen 2.5 Coder 32B (qwen-2.5-coder-32b-instruct)</option>
-              </optgroup>
-
-              <!-- Optgroup 3: OpenRouter / Cloud All-in-One -->
-              <optgroup label="🌐 OpenRouter & SiliconFlow Models">
-                <option value="deepseek/deepseek-chat">🌐 OpenRouter: deepseek/deepseek-chat</option>
-                <option value="deepseek/deepseek-r1">🌐 OpenRouter: deepseek/deepseek-r1</option>
-                <option value="qwen/qwen-2.5-72b-instruct">🌐 OpenRouter: qwen/qwen-2.5-72b-instruct</option>
-                <option value="qwen/qwen-max">🌐 OpenRouter: qwen/qwen-max</option>
-                <option value="deepseek-ai/DeepSeek-V3">⚡ SiliconFlow: deepseek-ai/DeepSeek-V3</option>
-                <option value="deepseek-ai/DeepSeek-R1">⚡ SiliconFlow: deepseek-ai/DeepSeek-R1</option>
-                <option value="Qwen/Qwen2.5-72B-Instruct">⚡ SiliconFlow: Qwen/Qwen2.5-72B-Instruct</option>
-                <option value="Qwen/Qwen2.5-32B-Instruct">⚡ SiliconFlow: Qwen/Qwen2.5-32B-Instruct</option>
-                <option value="Qwen/Qwen2.5-7B-Instruct">⚡ SiliconFlow: Qwen/Qwen2.5-7B-Instruct</option>
-              </optgroup>
-
-              <option value="custom">✏️ พิมพ์ชื่อโมเดลเอง (Custom Model Name)</option>
-            </select>
-
-            <input type="text" id="input-model-name" class="form-input" value="deepseek-v4-pro" placeholder="เช่น deepseek-v4-pro, qwen-max, deepseek-chat">
-            <span class="form-hint" id="model-hint-text">โมเดลผู้เล่าเรื่อง: <code>deepseek-v4-pro</code></span>
-          </div>
-
-          <!-- 3. API KEY & VERIFICATION -->
-          <div class="form-group">
-            <label><i class="fa-solid fa-key"></i> <span id="label-api-key">API Key</span></label>
-            <div class="input-password-wrap">
-              <input type="password" id="input-api-key" class="form-input" placeholder="sk-... (DeepSeek API Key)" autocomplete="off">
-              <button id="btn-toggle-key-visibility" class="btn-eye" type="button"><i class="fa-solid fa-eye"></i></button>
-            </div>
-            
-            <button id="btn-test-api-key" class="btn btn-secondary btn-sm" type="button" style="margin-top: 6px; align-self: flex-start;">
-              <i class="fa-solid fa-bolt" style="color: var(--accent-amber);"></i> ทดสอบเชื่อมต่อโมเดล & ส่งข้อความ (Verify Connection)
-            </button>
-
-            <!-- LIVE VERIFICATION RESULT BOX (GREEN / RED) -->
-            <div id="api-verify-box" class="api-verify-box" style="display: none;">
-              <div class="verify-header-row" id="verify-header-row">
-                <i class="fa-solid fa-circle-notch fa-spin"></i> <span id="verify-status-title">กำลังตรวจสอบ...</span>
-              </div>
-              <div class="verify-detail" id="verify-detail-text"></div>
-            </div>
-          </div>
-
-          <!-- 4. BASE URL -->
-          <div class="form-group">
-            <label><i class="fa-solid fa-link"></i> API Base URL (OpenAI-Compatible Endpoint)</label>
-            <input type="text" id="input-base-url" class="form-input" value="https://api.deepseek.com">
-            <span class="form-hint" id="base-url-hint">สำหรับ DeepSeek: <code>https://api.deepseek.com</code> | สำหรับ Qwen: <code>https://dashscope-intl.aliyuncs.com/compatible-mode/v1</code></span>
-          </div>
-
-          <!-- 5. TOKENS & TEMPERATURE -->
-          <div class="form-group">
-            <div class="flex-between">
-              <label>Default Output Tokens: <span id="val-global-tokens" class="token-val-badge">500</span></label>
-            </div>
-            <input type="range" id="input-global-tokens" min="150" max="1500" step="50" value="500" class="form-range">
-          </div>
-
-          <div class="form-group">
-            <div class="flex-between">
-              <label>Temperature (ความสร้างสรรค์): <span id="val-temperature">0.85</span></label>
-            </div>
-            <input type="range" id="input-temperature" min="0.0" max="1.5" step="0.05" value="0.85" class="form-range">
-          </div>
-
-          <button id="btn-save-settings" class="btn btn-primary btn-full">
-            <i class="fa-solid fa-check"></i> บันทึกการตั้งค่า
-          </button>
+          <p class="section-desc">ตั้งค่า API Key และเลือกรุ่นโมเดล AI (DeepSeek, OpenRouter, Qwen, SiliconFlow)</p>
           
-          <div class="prompt-code-loc-box">
-            <h4><i class="fa-solid fa-code"></i> ตำแหน่งไฟล์แก้ไข AI System Prompt:</h4>
-            <code>server/prompts.js</code>
+          <div class="form-group">
+            <label>เลือกผู้ให้บริการ (Provider Presets)</label>
+            <div class="provider-chips-grid" id="provider-chips">
+              <button type="button" class="provider-chip active" data-provider="deepseek">DeepSeek Official</button>
+              <button type="button" class="provider-chip" data-provider="openrouter">OpenRouter (แนะนำ)</button>
+              <button type="button" class="provider-chip" data-provider="qwen">Qwen (DashScope)</button>
+              <button type="button" class="provider-chip" data-provider="siliconflow">SiliconFlow</button>
+              <button type="button" class="provider-chip" data-provider="custom">Custom Endpoint</button>
+            </div>
           </div>
+
+          <div class="form-group">
+            <label>API Key *</label>
+            <div class="password-input-wrap">
+              <input type="password" id="input-api-key" class="form-input" placeholder="sk-..." autocomplete="off">
+              <button type="button" id="btn-toggle-key-visibility" class="btn-toggle-pw" title="แสดง/ซ่อนคีย์">
+                <i class="fa-solid fa-eye"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Base URL</label>
+            <input type="text" id="input-base-url" class="form-input" placeholder="https://api.deepseek.com">
+          </div>
+
+          <div class="form-group">
+            <label>โมเดลหลักสำหรับเล่าเรื่อง (Storyteller Model)</label>
+            <input type="text" id="input-model-name" class="form-input" placeholder="deepseek-v4-pro หรือ deepseek/deepseek-chat">
+          </div>
+
+          <div class="form-group">
+            <label>โมเดลความจำและกรรมการ (Referee / Memory Model)</label>
+            <input type="text" id="input-referee-model" class="form-input" placeholder="deepseek-v4-flash หรือ deepseek/deepseek-chat">
+          </div>
+
+          <div class="test-connection-section" style="margin-top: 16px;">
+            <button type="button" id="btn-test-api-key" class="btn btn-secondary btn-full">
+              <i class="fa-solid fa-network-wired"></i> ทดสอบการเชื่อมต่อ (Verify Connection)
+            </button>
+            <div id="test-connection-result" class="test-result-card" style="display: none;"></div>
+          </div>
+
+          <button id="btn-save-settings" class="btn btn-primary btn-full" style="margin-top: 14px;">
+            <i class="fa-solid fa-floppy-disk"></i> บันทึกการตั้งค่า
+          </button>
         </div>
       </div>
     </div>
 
     <!-- ==================================================== -->
-    <!-- MODAL 1: ADVANCED WORLD & CHARACTER CREATOR          -->
+    <!-- MODALS                                               -->
     <!-- ==================================================== -->
+
+    <!-- MODAL: CHARACTER AVATAR & IMAGE CUSTOMIZER -->
+    <div id="modal-custom-avatar" class="modal-backdrop" style="display: none;">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div class="modal-header-left">
+            <i class="fa-solid fa-image-portrait modal-icon" style="color: var(--accent-amber);"></i>
+            <div>
+              <h3 class="modal-title" id="avatar-modal-title">ปรับแต่งและเปลี่ยนรูปภาพตัวละคร</h3>
+              <span class="modal-subtitle">เปลี่ยนรูปอวตารของคุณ หรือตัวละคร NPC ใน Roster</span>
+            </div>
+          </div>
+          <button class="modal-close-btn" id="btn-close-avatar-modal">&times;</button>
+        </div>
+
+        <div class="modal-body">
+          <div class="avatar-preview-center">
+            <div class="avatar-preview-frame">
+              <img id="avatar-preview-img" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=400&auto=format&fit=crop" alt="Preview">
+            </div>
+            <span id="avatar-target-name" style="font-weight: 600; color: var(--accent-amber);">ตัวละครที่เลือก</span>
+          </div>
+
+          <div class="form-group" style="margin-top: 14px;">
+            <label>1. ใส่ Image URL ตรงจากเว็บ:</label>
+            <input type="text" id="input-avatar-url" class="form-input" placeholder="https://images.unsplash.com/...">
+          </div>
+
+          <div class="form-group">
+            <label>2. หรือ อัปโหลดรูปภาพจากเครื่อง (PNG, JPG, WebP):</label>
+            <input type="file" id="file-avatar-upload" accept="image/*" class="form-input">
+          </div>
+
+          <div class="form-group">
+            <label>3. หรือ เลือกจาก Anime / Fantasy Gallery Presets:</label>
+            <div class="avatar-presets-grid" id="avatar-presets-container">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-ghost" id="btn-cancel-avatar">ยกเลิก</button>
+          <button class="btn btn-primary" id="btn-save-avatar">
+            <i class="fa-solid fa-check"></i> บันทึกรูปภาพ
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: EDIT MESSAGE IN-PLACE -->
+    <div id="modal-edit-message" class="modal-backdrop" style="display: none;">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div class="modal-header-left">
+            <i class="fa-solid fa-pen-to-square modal-icon" style="color: var(--accent-amber);"></i>
+            <div>
+              <h3 class="modal-title">แก้ไขข้อความบทสนทนา</h3>
+              <span class="modal-subtitle">ปรับแต่งเนื้อหาข้อความในประวัติการสนทนา</span>
+            </div>
+          </div>
+          <button class="modal-close-btn" id="btn-close-edit-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <textarea id="input-edit-message-text" rows="8" class="form-textarea" placeholder="พิมพ์ข้อความที่ต้องการแก้ไข..."></textarea>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" id="btn-cancel-edit-msg">ยกเลิก</button>
+          <button class="btn btn-primary" id="btn-save-edit-msg">
+            <i class="fa-solid fa-floppy-disk"></i> บันทึกการแก้ไข
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: ADVANCED WORLD CREATOR -->
     <div id="modal-create-world" class="modal-backdrop" style="display: none;">
       <div class="modal-card modal-card-large">
         <div class="modal-header">
           <div class="modal-header-left">
-            <i class="fa-solid fa-earth-americas modal-icon"></i>
+            <i class="fa-solid fa-earth-asia modal-icon"></i>
             <div>
-              <h3 class="modal-title">สร้างโลกและตัวละครแบบละเอียด (Advanced World Creator)</h3>
-              <span class="modal-subtitle">กำหนดประวัติศาสตร์, ภูมิศาสตร์, กฎเวทมนตร์/เทคโนโลยี, ค่าพลัง และบทนำเปิดฉาก</span>
+              <h3 class="modal-title">สร้างโลกและตัวละครระดับสูง (Detailed Creator)</h3>
+              <span class="modal-subtitle">ออกแบบระบบพลัง กฎเกณฑ์โลก ค่าสถานะ D20 และความลับเฉพาะตัว</span>
             </div>
           </div>
           <button class="modal-close-btn" id="btn-close-create-world">&times;</button>
         </div>
-        
-        <div class="modal-tabs-bar">
-          <button type="button" class="modal-tab-btn active" data-tab="tab-world-lore"><i class="fa-solid fa-globe"></i> 1. ข้อมูลโลก & ลอเร่</button>
-          <button type="button" class="modal-tab-btn" data-tab="tab-world-chars"><i class="fa-solid fa-user-ninja"></i> 2. ตัวละคร & สเตตัส</button>
-          <button type="button" class="modal-tab-btn" data-tab="tab-world-prologue"><i class="fa-solid fa-feather-pointed"></i> 3. บทนำเปิดเรื่อง (Prologue)</button>
-        </div>
 
         <div class="modal-body">
-          
+          <div class="creator-tabs-nav">
+            <button class="tab-btn active" data-tab="tab-world-lore"><i class="fa-solid fa-book"></i> 1. ข้อมูลโลก & ลอเร่</button>
+            <button class="tab-btn" data-tab="tab-world-char"><i class="fa-solid fa-user-astronaut"></i> 2. ตัวละคร & สเตตัส D20</button>
+            <button class="tab-btn" data-tab="tab-world-prologue"><i class="fa-solid fa-feather-pointed"></i> 3. บทนำเปิดเรื่อง (Prologue)</button>
+          </div>
+
           <!-- TAB 1: WORLD LORE -->
           <div id="tab-world-lore" class="tab-pane active">
             <div class="form-grid-2">
               <div class="form-group">
-                <label>ชื่อโลก / จักรวาล (World Name) *</label>
-                <input type="text" id="adv-world-name" class="form-input" placeholder="เช่น หุบเขาสายหมอกนิรันดร์ หรือ มหานครนิว-อีเดน 2140">
+                <label>ชื่อโลก / จักรวาล *</label>
+                <input type="text" id="adv-world-name" class="form-input" placeholder="เช่น โรงเรียนมหาเวทแอสโทรเลีย">
               </div>
               <div class="form-group">
-                <label>หมวดหมู่ / แท็ก (Genre Tag)</label>
-                <input type="text" id="adv-world-tag" class="form-input" placeholder="เช่น Dark Fantasy, Cyberpunk, Sci-Fi, Slice of Life">
+                <label>หมวดหมู่ / แท็ก (Tag)</label>
+                <input type="text" id="adv-world-tag" class="form-input" placeholder="เช่น Hero Academy, Cyberpunk">
               </div>
             </div>
 
             <div class="form-group">
-              <label>ภาพรวมและบรรยากาศของโลก (World Overview & Tone) *</label>
-              <textarea id="adv-world-desc" rows="3" class="form-textarea" placeholder="บรรยายสถานที่ สภาพแวดล้อม ความขัดแย้ง และอารมณ์หลักของโลกใบนี้"></textarea>
+              <label>คำอธิบายโลกและธีมหลัก *</label>
+              <textarea id="adv-world-desc" rows="3" class="form-textarea" placeholder="บรรยายภาพรวม บรรยากาศ และเป้าหมายการเดินทางในโลกนี้"></textarea>
             </div>
 
             <div class="form-group">
               <label>รูปภาพหน้าปกโลก (Cover Image URL)</label>
-              <input type="text" id="adv-world-cover" class="form-input" placeholder="https://... (เว้นว่างไว้เพื่อใช้ภาพอัตโนมัติ)">
+              <input type="text" id="adv-world-cover" class="form-input" placeholder="https://images.unsplash.com/...">
             </div>
 
             <div class="form-grid-2">
               <div class="form-group">
-                <label>ภูมิศาสตร์ & สถานที่สำคัญ (Geography / Locations)</label>
-                <textarea id="adv-lore-geo" rows="2" class="form-textarea" placeholder="เช่น ซากวิหารน้ำแข็ง, นครใต้พิภพ, ป่าหมอกมายา"></textarea>
+                <label>ภูมิศาสตร์ & สถานที่สำคัญ</label>
+                <textarea id="adv-lore-geo" rows="2" class="form-textarea" placeholder="เช่น หอคอยมังกร, สลัมเขต 7"></textarea>
               </div>
               <div class="form-group">
-                <label>กฎเวทมนตร์ / วิทยาการ (Magic & Tech Rules)</label>
-                <textarea id="adv-lore-magic" rows="2" class="form-textarea" placeholder="เช่น การใช้เวทมนตร์ต้องแลกด้วยความทรงจำ หรือ ชิปประสาทสั่งการไซเบอร์เนติกส์"></textarea>
+                <label>กฎของพลัง / เวทมนตร์ / เทคโนโลยี</label>
+                <textarea id="adv-lore-magic" rows="2" class="form-textarea" placeholder="เช่น กฎพลัง Will, การแลกเปลี่ยนความทรงจำ"></textarea>
               </div>
             </div>
 
-            <div class="form-group">
-              <label>ฝ่ายและกองกำลังที่มีอิทธิพล (Factions & Powers)</label>
-              <input type="text" id="adv-lore-factions" class="form-input" placeholder="เช่น ภาคีอัศวินกุหลาบดำ, บรรษัทข้ามชาติอากิระ, กองทัพกบฏแดนใต้">
+            <div class="form-grid-2">
+              <div class="form-group">
+                <label>ฝ่ายและองค์กร (Factions)</label>
+                <input type="text" id="adv-lore-factions" class="form-input" placeholder="เช่น สภานักเรียน, ภาคีอัศวินกุหลาบดำ">
+              </div>
+              <div class="form-group">
+                <label>กฎ Canon และธรรมเนียมโลก</label>
+                <input type="text" id="adv-lore-custom" class="form-input" placeholder="เช่น ห้ามโกงความตาย, โครงสร้างชนชั้น">
+              </div>
             </div>
           </div>
 
-          <!-- TAB 2: CHARACTER DETAILS -->
-          <div id="tab-world-chars" class="tab-pane">
+          <!-- TAB 2: CHARACTER & STATS -->
+          <div id="tab-world-char" class="tab-pane">
             <div class="form-grid-2">
               <div class="form-group">
-                <label>ชื่อตัวละครหลัก (Character Name) *</label>
-                <input type="text" id="adv-char-name" class="form-input" placeholder="เช่น ลิเลียน (Lilian) หรือ วลาดิเมียร์">
+                <label>ชื่อตัวละครหลัก *</label>
+                <input type="text" id="adv-char-name" class="form-input" placeholder="เช่น เซเลสเทีย วอน เกรย์">
               </div>
               <div class="form-group">
-                <label>รูปโปรไฟล์ตัวละคร (Avatar URL)</label>
-                <input type="text" id="adv-char-avatar" class="form-input" placeholder="https://... (เว้นว่างไว้เพื่อใช้ภาพสุ่ม)">
+                <label>บทบาท / ฉายา</label>
+                <input type="text" id="adv-char-role" class="form-input" placeholder="เช่น อัศวินผู้แบกรับตราบาป">
+              </div>
+            </div>
+
+            <div class="form-grid-2">
+              <div class="form-group">
+                <label>รูปภาพตัวละคร (Avatar URL)</label>
+                <input type="text" id="adv-char-avatar" class="form-input" placeholder="https://images.unsplash.com/...">
+              </div>
+              <div class="form-group">
+                <label>แท็กบุคลิกภาพ (คั่นด้วยจุลภาค)</label>
+                <input type="text" id="adv-char-tags" class="form-input" placeholder="สุขุม, ปากแข็ง, แอบใจดี">
               </div>
             </div>
 
             <div class="form-group">
-              <label>คำอธิบายบุคลิกย่อ (Short Bio & Personality)</label>
-              <textarea id="adv-char-desc" rows="2" class="form-textarea" placeholder="เช่น อัศวินสาวปากแข็งผู้ซื่อสัตย์ แต่มีความทรงจำอันเจ็บปวดในอดีต"></textarea>
+              <label>ประวัติความเป็นมาและปูมหลัง</label>
+              <textarea id="adv-char-history" rows="3" class="form-textarea" placeholder="บอกเล่าอดีต ปมในใจ และแรงผลักดันของตัวละคร"></textarea>
             </div>
 
-            <div class="form-group">
-              <label>นิสัยและแท็ก (Personality Tags คั่นด้วยจุลภาค)</label>
-              <input type="text" id="adv-char-tags" class="form-input" placeholder="สุขุม, ปากแข็ง, แอบอ่อนไหว, ฉลาด, นักดาบ">
-            </div>
-
-            <div class="form-group">
-              <label>ประวัติความเป็นมาเชิงลึก (Detailed Lore & Backstory)</label>
-              <textarea id="adv-char-history" rows="3" class="form-textarea" placeholder="ประวัติชีวิต บาดแผลในอดีต หรือเป้าหมายที่แท้จริงของตัวละครนี้"></textarea>
-            </div>
-
-            <label style="font-weight: 600; font-size: 13px; margin-top: 8px;">ค่าพลังพื้นฐาน (Base Stats สำหรับทอยเต๋า D20):</label>
+            <label style="font-weight: 700; margin-top: 10px; display: block;">ค่าสถานะพื้นฐาน D20 (Base Stats: ค่า 10 คือคนปกติ, ค่า 18 คือหัวกะทิ)</label>
             <div class="stats-input-grid">
               <div class="stat-input-box">
                 <span>💪 STR (พละกำลัง)</span>
-                <input type="number" id="adv-stat-str" value="14" min="1" max="30">
+                <input type="number" id="adv-stat-str" value="10" min="1" max="30">
               </div>
               <div class="stat-input-box">
                 <span>🏃 AGI (ความว่องไว)</span>
@@ -649,9 +749,7 @@
       </div>
     </div>
 
-    <!-- ==================================================== -->
-    <!-- MODAL 2: WORLDBOOK / LOREBOOK IMPORT & AI ANALYZER  -->
-    <!-- ==================================================== -->
+    <!-- MODAL: WORLDBOOK IMPORT & AI ANALYZER -->
     <div id="modal-worldbook-import" class="modal-backdrop" style="display: none;">
       <div class="modal-card modal-card-large">
         <div class="modal-header">
@@ -682,7 +780,7 @@
 
             <div id="wb-analyzing-indicator" class="analyzing-banner" style="display: none;">
               <div class="dots-spinner"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
-              <span id="wb-analyzing-text">DeepSeek กำลังวิเคราะห์ Worldbook และสกัดข้อมูลโลก ตัวละคร และบทนำ...</span>
+              <span id="wb-analyzing-text">AI กำลังวิเคราะห์ Worldbook และสกัดข้อมูลโลก ตัวละคร และบทนำ...</span>
             </div>
           </div>
 
