@@ -289,6 +289,40 @@ app.delete('/api/slots/:id/facts/:factId', (req, res) => {
   }
 });
 
+// --- Entity Aliases [P0] ---
+app.get('/api/slots/:id/aliases', (req, res) => {
+  try {
+    const aliases = memoryEngine.getAliases(req.params.id);
+    res.json(aliases);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/slots/:id/aliases', (req, res) => {
+  try {
+    const { canonical, alias } = req.body;
+    if (!canonical || !alias) {
+      return res.status(400).json({ error: 'canonical and alias are required' });
+    }
+    memoryEngine.registerAlias(req.params.id, canonical, alias);
+    const updated = memoryEngine.getAliases(req.params.id);
+    res.json({ success: true, aliases: updated });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- Summary History [P1] ---
+app.get('/api/slots/:id/summary-history', (req, res) => {
+  try {
+    const history = memoryEngine.getSummaryHistory(req.params.id);
+    res.json(history);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // --- Turn Execution Pipeline ---
 app.post('/api/slots/:id/turn', async (req, res) => {
   try {

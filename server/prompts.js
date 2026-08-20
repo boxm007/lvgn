@@ -342,6 +342,7 @@ Extract:
 1. Significant Episodic Memory Chunk (Event milestone, discoveries, injuries, promises).
 2. Semantic Fact Triplets in (Subject, Predicate, Object) format to update character knowledge, traits, or relationship states.
 3. Assess importance score (1-10) and emotional valence (positive/negative/neutral/tension).
+4. Entity aliases if the same character/entity is referred to by different names.
 
 [SCENE & PARTICIPANTS]
 - World: ${worldName}
@@ -360,6 +361,7 @@ ${latestTurns.map(t => `${t.role === 'user' ? 'Player' : characterName}: ${t.con
 - Triplet Predicate: Relationship/Property (e.g. "discovered_weakness", "promised_to_help", "unawakened_will", "possesses").
 - Triplet Object: Clear concise fact description (e.g. "battery overheating after 3 minutes", "train together at 5am").
 - Importance score: 1 (trivial chatter) to 10 (life-changing plot event/awakening).
+- Also extract entity aliases if you detect that the same character/entity is referred to by different names (e.g. nickname, full name, title, Thai/English variants like "เรน" and "Ren").
 - Output MUST be pure valid JSON with NO markdown formatting.
 
 Return pure JSON:
@@ -377,6 +379,9 @@ Return pure JSON:
       "object": "accepted training invitation from Janitor Goro",
       "confidence": 0.95
     }
+  ],
+  "entity_aliases": [
+    { "canonical": "เรน อากิยามะ", "alias": "Ren" }
   ]
 }`;
 }

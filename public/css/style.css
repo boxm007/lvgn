@@ -1255,33 +1255,40 @@ a {
   color: var(--text-main);
 }
 
-/* INPUT COMPOSER */
+/* INPUT COMPOSER (Enhanced for Mobile & Desktop) */
 .input-composer {
   display: flex;
   align-items: flex-end;
-  background: var(--bg-card);
-  border: 1px solid var(--border-card);
+  background: rgba(22, 17, 43, 0.88);
+  border: 1.5px solid var(--border-card);
   border-radius: var(--radius-lg);
-  padding: 6px 10px 6px 14px;
-  gap: 10px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
-  transition: var(--transition-normal);
+  padding: 8px 12px 8px 16px;
+  gap: 12px;
+  min-height: 54px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(168, 85, 247, 0.08);
+  transition: all var(--transition-normal);
+  cursor: text;
 }
 
-.input-composer:focus-within {
+.input-composer:focus-within,
+.input-composer.is-focused {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px var(--primary-glow);
+  background: rgba(28, 21, 56, 0.96);
+  box-shadow: 0 6px 28px rgba(0, 0, 0, 0.55), 0 0 0 3px var(--primary-glow);
 }
 
 .input-mode-indicator {
   display: flex;
   align-items: center;
-  gap: 4px;
-  font-size: 11.5px;
+  gap: 5px;
+  font-size: 12px;
   font-weight: 700;
   color: var(--accent-amber);
-  padding-bottom: 6px;
+  padding-bottom: 8px;
   text-transform: uppercase;
+  letter-spacing: 0.5px;
+  user-select: none;
+  flex-shrink: 0;
 }
 
 .input-composer textarea {
@@ -1290,30 +1297,55 @@ a {
   border: none;
   outline: none;
   resize: none;
-  max-height: 120px;
-  min-height: 24px;
-  font-size: 14.5px;
-  line-height: 1.5;
+  max-height: 160px;
+  min-height: 36px;
+  font-size: 15.5px;
+  line-height: 1.55;
   color: var(--text-main);
-  padding: 4px 0;
+  padding: 6px 0;
+  font-family: inherit;
+  caret-color: var(--primary);
+  touch-action: manipulation;
+  -webkit-user-select: text;
+  user-select: text;
+  overflow-y: auto;
+}
+
+.input-composer textarea::placeholder {
+  color: var(--text-dim);
+  font-size: 14px;
 }
 
 .btn-send {
-  width: 36px;
-  height: 36px;
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  min-height: 42px;
   border-radius: var(--radius-full);
-  background: var(--primary);
+  background: linear-gradient(135deg, var(--primary), #7c3aed);
   color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: 15px;
   margin-bottom: 2px;
+  border: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  box-shadow: 0 4px 14px var(--primary-glow);
+  transition: all var(--transition-normal);
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .btn-send:hover {
-  background: var(--primary-hover);
-  transform: scale(1.05);
+  background: linear-gradient(135deg, #9333ea, #6d28d9);
+  transform: scale(1.06);
+  box-shadow: 0 6px 20px rgba(168, 85, 247, 0.5);
+}
+
+.btn-send:active {
+  transform: scale(0.92);
 }
 
 /* ==========================================================================
@@ -2383,18 +2415,73 @@ a {
   }
 
   .story-action-bar {
-    padding: 10px 12px max(12px, env(safe-area-inset-bottom));
+    padding: 8px 10px max(12px, env(safe-area-inset-bottom));
+    gap: 8px;
+    background: rgba(10, 8, 22, 0.95);
+    border-top: 1px solid rgba(168, 85, 247, 0.25);
+  }
+
+  .action-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+    flex-wrap: nowrap;
+    width: 100%;
+  }
+
+  .action-toolbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .mode-toggle-group {
+    flex-shrink: 0;
+    padding: 2px;
+  }
+
+  .mode-btn {
+    padding: 6px 12px;
+    font-size: 12px;
+    min-height: 34px;
+    touch-action: manipulation;
+  }
+
+  .turn-helpers {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .dice-badge-btn,
+  .tool-btn {
+    padding: 6px 10px;
+    font-size: 11.5px;
+    min-height: 34px;
+    touch-action: manipulation;
+    white-space: nowrap;
   }
 
   .input-composer {
-    padding: 8px 12px;
+    padding: 8px 10px 8px 14px;
     border-radius: var(--radius-md);
-    min-height: 52px;
+    min-height: 56px;
+    background: rgba(24, 18, 48, 0.96);
+    border: 1.5px solid rgba(168, 85, 247, 0.3);
+    gap: 8px;
+  }
+
+  .input-mode-indicator {
+    font-size: 11px;
+    padding-bottom: 6px;
   }
 
   .input-composer textarea {
     font-size: 16px !important; /* Critical: prevents iOS/Android virtual keyboard zoom */
-    min-height: 36px;
+    min-height: 40px;
     padding: 6px 0;
     touch-action: manipulation;
     -webkit-user-select: text;
@@ -2402,9 +2489,11 @@ a {
   }
 
   .btn-send {
-    width: 42px;
-    height: 42px;
-    font-size: 16px;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    font-size: 17px;
     flex-shrink: 0;
   }
 
@@ -2816,4 +2905,246 @@ a {
   color: #f87171;
   border: 1px solid rgba(239, 68, 68, 0.3);
 }
+
+/* ==========================================================================
+   UI ANIMATION SUITE (MODERN GLASSMORPHISM & AI INTERACTIVE MOTION)
+   ========================================================================== */
+
+/* 1. Chat Message Entrance Animation */
+@keyframes msgSlideInUp {
+  0% {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.message-item,
+.message-card {
+  animation: msgSlideInUp 0.38s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* 2. D20 Fate Roll Dice Pop & Critical Animations */
+@keyframes diceBouncePop {
+  0% {
+    transform: scale(0.65) rotate(-12deg);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.12) rotate(4deg);
+    opacity: 1;
+  }
+  85% {
+    transform: scale(0.96) rotate(-1deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+.roll-badge,
+.fate-result-badge,
+.d20-badge-btn {
+  animation: diceBouncePop 0.52s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes critGoldPulse {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(245, 158, 11, 0.4), 0 0 16px rgba(253, 224, 71, 0.2);
+    border-color: #fde047;
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(245, 158, 11, 0.85), 0 0 30px rgba(253, 224, 71, 0.6);
+    border-color: #fef08a;
+  }
+}
+
+.crit-success-glow {
+  animation: critGoldPulse 2s ease-in-out infinite alternate !important;
+}
+
+@keyframes critFailPulse {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(244, 63, 94, 0.4);
+    border-color: #f43f5e;
+  }
+  50% {
+    box-shadow: 0 0 22px rgba(244, 63, 94, 0.85);
+    border-color: #fda4af;
+  }
+}
+
+.crit-fail-glow {
+  animation: critFailPulse 1.8s ease-in-out infinite alternate !important;
+}
+
+/* 3. Relationship Meter Smooth Progress & Shimmer */
+.progress-fill {
+  transition: width 0.85s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.progress-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  animation: barShimmer 2.6s infinite;
+}
+
+@keyframes barShimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* 4. NPC Discovery Sparkle & Glow Pulse */
+@keyframes npcDiscoverySparkle {
+  0% {
+    box-shadow: 0 0 0 rgba(168, 85, 247, 0);
+    border-color: var(--border-card);
+    transform: scale(0.97);
+  }
+  50% {
+    box-shadow: 0 0 28px rgba(217, 70, 239, 0.7), 0 0 45px rgba(168, 85, 247, 0.4);
+    border-color: var(--accent-fuchsia);
+    transform: scale(1.01);
+  }
+  100% {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    border-color: var(--border-active);
+    transform: scale(1);
+  }
+}
+
+.npc-discovery-card,
+.discovered-npc-banner {
+  animation: npcDiscoverySparkle 1.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* 5. Smooth Slide-Out Drawer Animations */
+.side-drawer {
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.side-drawer .drawer-overlay {
+  transition: opacity 0.3s ease;
+}
+
+.side-drawer .drawer-panel {
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.side-drawer.active .drawer-panel {
+  transform: translateX(0) !important;
+}
+
+/* 6. AI Typing Indicator Wave Animation */
+.typing-indicator {
+  animation: msgSlideInUp 0.3s ease both;
+}
+
+.typing-indicator .dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--primary);
+  animation: waveDot 1.4s ease-in-out infinite;
+}
+
+.typing-indicator .dot:nth-child(2) {
+  animation-delay: 0.2s;
+  background: #a855f7;
+}
+
+.typing-indicator .dot:nth-child(3) {
+  animation-delay: 0.4s;
+  background: var(--accent-amber);
+}
+
+@keyframes waveDot {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  30% {
+    transform: translateY(-6px);
+    opacity: 1;
+    filter: drop-shadow(0 0 5px var(--primary-glow));
+  }
+}
+
+/* 7. Staggered Card Entrance Animation */
+@keyframes cardEntrance {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.world-card,
+.slot-card {
+  animation: cardEntrance 0.42s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.worlds-grid > .world-card:nth-child(1) { animation-delay: 0.04s; }
+.worlds-grid > .world-card:nth-child(2) { animation-delay: 0.09s; }
+.worlds-grid > .world-card:nth-child(3) { animation-delay: 0.14s; }
+.worlds-grid > .world-card:nth-child(4) { animation-delay: 0.19s; }
+.worlds-grid > .world-card:nth-child(5) { animation-delay: 0.24s; }
+.worlds-grid > .world-card:nth-child(6) { animation-delay: 0.29s; }
+
+/* 8. Interactive Button Micro-interactions */
+.btn,
+.mode-btn,
+.icon-btn,
+.tool-btn,
+.filter-pill {
+  transition: all var(--transition-normal);
+  will-change: transform, box-shadow;
+}
+
+.btn:active,
+.mode-btn:active,
+.icon-btn:active,
+.tool-btn:active {
+  transform: scale(0.94);
+}
+
+.btn-primary:hover {
+  box-shadow: 0 4px 18px var(--primary-glow), 0 0 10px rgba(139, 92, 246, 0.4);
+}
+
+.btn-accent:hover {
+  box-shadow: 0 4px 18px rgba(245, 158, 11, 0.45);
+}
+
+/* 9. Toast Notification Smooth Pop */
+@keyframes toastSlideDown {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -22px) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+}
+
+.app-toast {
+  animation: toastSlideDown 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
 

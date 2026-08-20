@@ -698,7 +698,7 @@ function formatProseContent(rawText, scene = null) {
 
 function createMessageElement(msg, isLast) {
   const item = document.createElement('div');
-  item.className = `message-item ${msg.role === 'user' ? 'user-message' : 'ai-message'} message-card`;
+  item.className = `message-item ${msg.role === 'user' ? 'user-message' : 'ai-message'} message-card slideInUp`;
   item.dataset.msgId = msg.id || ('msg_' + Date.now());
 
   // Message Hover Actions Toolbar
@@ -725,8 +725,11 @@ function createMessageElement(msg, isLast) {
   } else {
     let fateHtml = '';
     if (msg.fateResult && msg.fateResult.badgeText) {
+      const isCritSuccess = msg.fateResult.tier === 'critical_success' || msg.fateResult.d20 === 20;
+      const isCritFail = msg.fateResult.tier === 'critical_failure' || msg.fateResult.d20 === 1;
+      const critGlowClass = isCritSuccess ? 'crit-success-glow' : (isCritFail ? 'crit-fail-glow' : '');
       fateHtml = `
-        <div class="fate-badge-card ${msg.fateResult.tier}">
+        <div class="fate-badge-card ${msg.fateResult.tier} diceBounce ${critGlowClass}">
           <i class="fa-solid fa-dice-d20"></i>
           <span>${msg.fateResult.badgeText}</span>
         </div>
@@ -785,7 +788,7 @@ function renderDiscoveredNpcPrompt(npc) {
   if (!npc || !npc.name) return;
 
   const card = document.createElement('div');
-  card.className = 'npc-discovery-card';
+  card.className = 'npc-discovery-card sparkleGlow';
   card.id = 'npc-prompt-' + Date.now();
   card.innerHTML = `
     <div class="npc-discovery-header">
@@ -980,6 +983,7 @@ async function handleSendTurn() {
   State.isLoadingTurn = true;
   Elements.story.btnSend.disabled = true;
   Elements.story.typingIndicator.style.display = 'flex';
+  Elements.story.typingIndicator.classList.add('shimmerPulse');
 
   try {
     let res;
@@ -1008,6 +1012,7 @@ async function handleSendTurn() {
     State.activeSlot.history.push(res.userTurn, res.aiTurn);
 
     Elements.story.typingIndicator.style.display = 'none';
+    Elements.story.typingIndicator.classList.remove('shimmerPulse');
     
     const msgEl = createMessageElement(res.aiTurn, true);
     Elements.story.messagesList.appendChild(msgEl);
@@ -1031,6 +1036,7 @@ async function handleSendTurn() {
     scrollToBottom();
   } catch (err) {
     Elements.story.typingIndicator.style.display = 'none';
+    Elements.story.typingIndicator.classList.remove('shimmerPulse');
     showToast('เกิดข้อผิดพลาดในการประมวลผล: ' + err.message, 'error');
   } finally {
     State.isLoadingTurn = false;
@@ -1612,19 +1618,56 @@ function setupEventListeners() {
   Elements.story.btnModeDo?.addEventListener('click', () => setInteractionMode('Do'));
   Elements.story.btnModeSay?.addEventListener('click', () => setInteractionMode('Say'));
 
-  // Chat Send Turn
+  // Chat Send Turn & Input Auto-Resize
   Elements.story.btnSend?.addEventListener('click', handleSendTurn);
-  Elements.story.input?.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendTurn();
+  
+  const textarea = Elements.story.input;
+  if (textarea) {
+    const handleAutoResize = () => {
+      textarea.style.height = 'auto';
+      const newHeight = Math.min(Math.max(textarea.scrollHeight, 36), 160);
+      textarea.style.height = newHeight + 'px';
+    };
+
+    textarea.addEventListener('input', handleAutoResize);
+
+    textarea.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        handleSendTurn();
+      }
+    });
+
+    textarea.addEventListener('focus', () => {
+      document.querySelector('.input-composer')?.classList.add('is-focused');
+      setTimeout(scrollToBottom, 200);
+    });
+
+    textarea.addEventListener('blur', () => {
+      document.querySelector('.input-composer')?.classList.remove('is-focused');
+    });
+  }
+
+  // Tap anywhere on input-composer box to focus textarea (Mobile convenience)
+  document.querySelector('.input-composer')?.addEventListener('click', (e) => {
+    if (e.target !== Elements.story.btnSend && !Elements.story.btnSend?.contains(e.target)) {
+      Elements.story.input?.focus();
     }
   });
+
+  // Mobile Virtual Keyboard Handling (Visual Viewport)
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', () => {
+      if (State.activeView === 'view-story') {
+        scrollToBottom();
+      }
+    });
+  }
 
   // Floating Type Button (Mobile)
   document.getElementById('btn-floating-type')?.addEventListener('click', () => {
     Elements.story.input?.focus();
-    scrollToBottom();
+    setTimeout(scrollToBottom, 200);
   });
 
   // Story Room Header Action Buttons
@@ -2244,18 +2287,19 @@ function getWbEditedCharacters() {
 
 function setInteractionMode(mode) {
   State.currentMode = mode;
+  const isMobile = window.innerWidth <= 768;
   if (mode === 'Do') {
     Elements.story.btnModeDo.classList.add('active');
     Elements.story.btnModeSay.classList.remove('active');
     Elements.story.modeLabel.innerText = 'Do';
     Elements.story.modeIndicator.innerHTML = '<i class="fa-solid fa-hand-fist"></i> <span>Do</span>';
-    Elements.story.input.placeholder = 'ระบุการกระทำทางกายภาพ/ยุทธวิธีของคุณ... เช่น "ชักมีดพกออกมาป้องกันตัว และสแกนหาจุดอ่อน"';
+    Elements.story.input.placeholder = isMobile ? 'ระบุการกระทำ (Do)...' : 'ระบุการกระทำทางกายภาพ/ยุทธวิธีของคุณ... เช่น "ชักมีดพกออกมาป้องกันตัว และสแกนหาจุดอ่อน"';
   } else {
     Elements.story.btnModeSay.classList.add('active');
     Elements.story.btnModeDo.classList.remove('active');
     Elements.story.modeLabel.innerText = 'Say';
     Elements.story.modeIndicator.innerHTML = '<i class="fa-solid fa-comment-dots"></i> <span>Say</span>';
-    Elements.story.input.placeholder = 'พิมพ์คำพูดหรือแสดงความรู้สึกของคุณ... เช่น "สวัสดีครับ มีอะไรให้ผมช่วยแนะนำไหม?"';
+    Elements.story.input.placeholder = isMobile ? 'พิมพ์คำพูด (Say)...' : 'พิมพ์คำพูดหรือแสดงความรู้สึกของคุณ... เช่น "สวัสดีครับ มีอะไรให้ผมช่วยแนะนำไหม?"';
   }
 }
 

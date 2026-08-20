@@ -302,8 +302,8 @@ async function executeTurnPipeline({ slotId, playerInput, customRoll = null }) {
   const currentTurnIdx = (slot.history || []).length;
   const retrievedMems = memoryEngine.searchRelevantMemories(slotId, playerInput.text, currentTurnIdx, { topK: 3 });
 
-  // 3. Fetch active semantic facts
-  const activeFacts = memoryEngine.getActiveFacts(slotId);
+  // 3. Fetch relevant semantic facts via Progressive Injection [P1]
+  const activeFacts = memoryEngine.getRelevantFacts(slotId, playerInput.text, { topK: 10 });
 
   // ==========================================
   // ADVANCE SCENE TIME & LOCATION
@@ -397,7 +397,7 @@ async function executeTurnPipeline({ slotId, playerInput, customRoll = null }) {
     const targetNpc = slot.roster.find(n => n.name.toLowerCase().includes(charName) || (n.id && n.id.toLowerCase() === charName))
       || slot.discovered_npcs.find(n => n.name.toLowerCase().includes(charName));
 
-    if (targetNpc && typeof d.delta === 'number') {
+      if (targetNpc && typeof d.delta === 'number') {
       targetNpc.relationship_value = Math.min(100, Math.max(-100, (targetNpc.relationship_value || 0) + d.delta));
       if (targetNpc.relationship_value >= 40) targetNpc.relationship_status = 'ผูกพันลึกซึ้ง';
       else if (targetNpc.relationship_value >= 20) targetNpc.relationship_status = 'สนิทสนม';
@@ -405,6 +405,9 @@ async function executeTurnPipeline({ slotId, playerInput, customRoll = null }) {
       else if (targetNpc.relationship_value <= -30) targetNpc.relationship_status = 'ศัตรูคู่อาฆาต';
       else if (targetNpc.relationship_value <= -10) targetNpc.relationship_status = 'ระแวง';
       else targetNpc.relationship_status = 'เป็นกลาง';
+
+      // [P2] Sync relationship change as fact triplet
+      memoryEngine.syncRelationshipFact(slotId, targetNpc.name, targetNpc.relationship_status, targetNpc.relationship_value, Math.floor((slot.history || []).length / 2), updatedScene);
     }
   });
 
@@ -527,7 +530,14 @@ async function executeTurnPipeline({ slotId, playerInput, customRoll = null }) {
           importance: parsedReflection.episodic_memory.importance || 5,
           emotional_valence: parsedReflection.episodic_memory.emotional_valence || 'neutral',
           entities: parsedReflection.episodic_memory.entities || [],
-          location: updatedScene.location
+          location: updatedScene.location,
+          // [P1] Temporal metadata
+          game_day: updatedScene.day,
+          game_time: updatedScene.time,
+          game_location: updatedScene.location,
+          // [P1] Provenance
+          source_turn_ids: [userTurn.id, aiTurn.id],
+          created_by: 'ai_extractor'
         });
       }
 
@@ -536,14 +546,39 @@ async function executeTurnPipeline({ slotId, playerInput, customRoll = null }) {
           if (f.subject && f.predicate && f.object) {
             memoryEngine.reconcileFact(slotId, {
               ...f,
-              turn_number: Math.floor(slot.history.length / 2)
+              turn_number: Math.floor(slot.history.length / 2),
+              // [P1] Temporal metadata
+              game_day: updatedScene.day,
+              game_time: updatedScene.time,
+              game_location: updatedScene.location,
+              // [P1] Provenance
+              source_turn_ids: [userTurn.id, aiTurn.id],
+              created_by: 'ai_extractor'
             });
           }
         }
       }
 
+      // [P0] Entity Alias Extraction — register any new aliases detected
+      if (Array.isArray(parsedReflection.entity_aliases)) {
+        for (const alias of parsedReflection.entity_aliases) {
+          if (alias.canonical && alias.alias) {
+            memoryEngine.registerAlias(slotId, alias.canonical, alias.alias);
+          }
+        }
+      }
+
+      // [P2] Memory Importance Decay — gradually reduce old low-importance memories
+      memoryEngine.applyImportanceDecay(slotId, Math.floor(slot.history.length / 2));
+
       // 2. Periodic Long-term Recursive Summarization
       if (slot.history.length % 8 === 0) {
+        // [P1] Summary Versioning — archive current summary before overwriting
+        const currentSlotForSummary = db.getSaveSlotById(slotId);
+        if (currentSlotForSummary && currentSlotForSummary.rolling_summary) {
+          memoryEngine.pushSummaryVersion(slotId, currentSlotForSummary.rolling_summary);
+        }
+
         const summaryPrompt = getMemorySummaryPrompt({
           worldName: world.name,
           characterName: character.name,
@@ -616,7 +651,7 @@ async function regenerateNarration({ slotId, customInstructions = '' }) {
 
   const currentTurnIdx = slot.history.length;
   const retrievedMems = memoryEngine.searchRelevantMemories(slotId, lastUserTurn.content, currentTurnIdx, { topK: 3 });
-  const activeFacts = memoryEngine.getActiveFacts(slotId);
+  const activeFacts = memoryEngine.getRelevantFacts(slotId, lastUserTurn.content, { topK: 10 });
 
   const storytellerSysPrompt = getStorytellerSystemPrompt(stylePreset);
   const storytellerUserPrompt = getStorytellerUserPrompt({

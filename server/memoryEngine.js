@@ -1,8 +1,19 @@
 /**
- * Long Voyage - Modern AI Roleplay Memory Engine
- * Implements 9-Tier Memory Architecture, Hybrid Vector/Semantic RAG,
- * Recency Decay, Fact Triplet Extraction, and Contradiction Resolution.
- * Based on: "AI Roleplay System Architecture" Reference Document
+ * Long Voyage - Modern AI Roleplay Memory Engine (UPGRADED)
+ * ============================================================
+ * Original: 9-Tier Memory Architecture, Hybrid Vector/Semantic RAG,
+ *           Recency Decay, Fact Triplet Extraction, Contradiction Resolution.
+ *
+ * UPGRADE ADDITIONS:
+ * - [P0] Entity Alias Resolution (canonical name mapping)
+ * - [P0] Progressive Fact Injection (relevance-scored fact retrieval)
+ * - [P1] Temporal Metadata (game_day, game_time, game_location)
+ * - [P1] Provenance Tracking (source_turn_ids, created_by)
+ * - [P1] Soft-Delete (status='DELETED' instead of hard remove)
+ * - [P1] Summary Versioning (keeps last 5 rolling summary versions)
+ * - [P2] Retrieval Debug Logging (score breakdown per memory)
+ * - [P2] Relationship Facts Sync (auto-create relationship triplets)
+ * - [P2] Memory Importance Decay (gradual decay for old low-importance)
  */
 
 const fs = require('fs');
@@ -42,6 +53,105 @@ class MemoryEngine {
       fs.writeFileSync(factsPath, JSON.stringify([], null, 2), 'utf8');
     }
   }
+
+  // ==========================================
+  // ENTITY ALIAS RESOLUTION [P0]
+  // ==========================================
+
+  /**
+   * Read entity aliases for a slot
+   * Format: { "เรน อากิยามะ": ["Ren", "เรน", "เด็กหนุ่มผมเงิน"], ... }
+   */
+  getAliases(slotId) {
+    const aliasPath = path.join(this.getSlotDir(slotId), 'entity_aliases.json');
+    try {
+      if (fs.existsSync(aliasPath)) {
+        return JSON.parse(fs.readFileSync(aliasPath, 'utf8'));
+      }
+    } catch (e) {
+      console.error(`[MemoryEngine] Failed to read aliases for ${slotId}:`, e);
+    }
+    return {};
+  }
+
+  /**
+   * Save entity aliases for a slot
+   */
+  saveAliases(slotId, aliases) {
+    this.ensureSlotMemoryStore(slotId);
+    const aliasPath = path.join(this.getSlotDir(slotId), 'entity_aliases.json');
+    fs.writeFileSync(aliasPath, JSON.stringify(aliases, null, 2), 'utf8');
+  }
+
+  /**
+   * Register a new alias for a canonical entity name
+   */
+  registerAlias(slotId, canonicalName, alias) {
+    if (!canonicalName || !alias) return;
+    const aliases = this.getAliases(slotId);
+    const canon = canonicalName.trim();
+    const al = alias.trim();
+    if (!aliases[canon]) {
+      aliases[canon] = [];
+    }
+    // Don't add duplicate aliases (case-insensitive check)
+    const existing = aliases[canon].map(a => a.toLowerCase());
+    if (!existing.includes(al.toLowerCase()) && al.toLowerCase() !== canon.toLowerCase()) {
+      aliases[canon].push(al);
+      this.saveAliases(slotId, aliases);
+      console.log(`[MemoryEngine] Alias registered: "${al}" → canonical "${canon}"`);
+    }
+  }
+
+  /**
+   * Resolve an entity name to its canonical form using aliases
+   * Returns canonical name if found, otherwise returns original name
+   */
+  resolveEntity(slotId, name) {
+    if (!name) return name;
+    const nameNorm = name.trim().toLowerCase();
+    const aliases = this.getAliases(slotId);
+
+    // Check if it's already a canonical name
+    for (const canon of Object.keys(aliases)) {
+      if (canon.toLowerCase() === nameNorm) return canon;
+    }
+
+    // Check if it matches any alias
+    for (const [canon, aliasList] of Object.entries(aliases)) {
+      for (const al of aliasList) {
+        if (al.toLowerCase() === nameNorm) return canon;
+      }
+    }
+
+    return name.trim(); // Return original if no match
+  }
+
+  /**
+   * Expand entity filter with all known aliases for better retrieval
+   */
+  expandEntityFilter(slotId, entityFilter) {
+    if (!entityFilter || !entityFilter.length) return entityFilter;
+    const aliases = this.getAliases(slotId);
+    const expanded = new Set(entityFilter.map(e => e.toLowerCase()));
+
+    for (const entity of entityFilter) {
+      const resolved = this.resolveEntity(slotId, entity);
+      expanded.add(resolved.toLowerCase());
+
+      // Add all aliases of the resolved canonical name
+      const canonAliases = aliases[resolved] || [];
+      for (const al of canonAliases) {
+        expanded.add(al.toLowerCase());
+      }
+    }
+
+    return Array.from(expanded);
+  }
+
+  // ==========================================
+  // CORE MEMORY READ/WRITE
+  // ==========================================
 
   /**
    * Read all episodic memories for a slot
@@ -88,6 +198,10 @@ class MemoryEngine {
     const factsPath = path.join(this.getSlotDir(slotId), 'facts.json');
     fs.writeFileSync(factsPath, JSON.stringify(facts, null, 2), 'utf8');
   }
+
+  // ==========================================
+  // TOKENIZER & SIMILARITY
+  // ==========================================
 
   /**
    * Thai + English text tokenizer for hybrid keyword & n-gram matching
@@ -172,8 +286,13 @@ class MemoryEngine {
     };
   }
 
+  // ==========================================
+  // HYBRID RAG RETRIEVAL [UPGRADED with Debug Logging P2 + Alias Expansion P0]
+  // ==========================================
+
   /**
    * Hybrid RAG Retrieval: Search relevant episodic memories for incoming user turn
+   * UPGRADED: Debug info + entity alias expansion
    */
   searchRelevantMemories(slotId, queryText, turnOrOptions = 0, maybeOptions = {}) {
     let currentTurnNumber = 0;
@@ -190,6 +309,9 @@ class MemoryEngine {
 
     if (!memories.length) return [];
 
+    // [P0] Expand entity filter with aliases
+    const expandedFilter = this.expandEntityFilter(slotId, entityFilter);
+
     const queryTokens = this.tokenize(queryText);
     const scoredMemories = [];
 
@@ -200,33 +322,57 @@ class MemoryEngine {
       const turnDistance = Math.max(0, (currentTurnNumber || memories.length) - (mem.turn_number || 0));
       const scoreObj = this.calculateCompositeScore(similarity, turnDistance, mem.importance || 5);
 
-      // Boost score if explicit entity match is detected
+      // Boost score if explicit entity match is detected (using expanded aliases)
       let entityBonus = 0;
-      if (entityFilter.length && mem.entities) {
-        const matches = entityFilter.filter(e => mem.entities.some(me => me.toLowerCase().includes(e.toLowerCase())));
+      if (expandedFilter.length && mem.entities) {
+        const matches = expandedFilter.filter(e => mem.entities.some(me => me.toLowerCase().includes(e.toLowerCase())));
         if (matches.length > 0) entityBonus = 0.15 * matches.length;
       }
 
       const finalScore = scoreObj.totalScore + entityBonus;
 
       if (finalScore >= minThreshold || similarity > 0.35) {
+        // [P2] Debug logging — attach scoring breakdown
+        const debugInfo = {
+          similarity: Math.round(similarity * 1000) / 1000,
+          recency: Math.round(scoreObj.sRecency * 1000) / 1000,
+          importance: Math.round(scoreObj.sImportance * 1000) / 1000,
+          entityBonus: Math.round(entityBonus * 1000) / 1000,
+          totalScore: Math.round(finalScore * 1000) / 1000,
+          turnDistance,
+          reason: `sim=${(similarity * 100).toFixed(1)}% rec=${(scoreObj.sRecency * 100).toFixed(1)}% imp=${mem.importance || 5}/10` +
+                  (entityBonus > 0 ? ` +entity(${entityBonus.toFixed(2)})` : '')
+        };
+
         scoredMemories.push({
           ...mem,
           score: finalScore,
           similarity,
           recencyScore: scoreObj.sRecency,
-          importanceScore: scoreObj.sImportance
+          importanceScore: scoreObj.sImportance,
+          debug: debugInfo
         });
       }
     }
 
     // Sort descending by total score
     scoredMemories.sort((a, b) => b.score - a.score);
-    return scoredMemories.slice(0, topK);
+
+    const results = scoredMemories.slice(0, topK);
+    if (results.length > 0) {
+      console.log(`[MemoryEngine] Retrieved ${results.length} memories for query "${queryText.substring(0, 50)}..." → scores: [${results.map(r => r.debug.totalScore).join(', ')}]`);
+    }
+
+    return results;
   }
+
+  // ==========================================
+  // EPISODIC MEMORY MANAGEMENT [UPGRADED with Temporal + Provenance P1]
+  // ==========================================
 
   /**
    * Add a new episodic memory item
+   * UPGRADED: game_day, game_time, game_location, source_turn_ids, created_by
    */
   addEpisodicMemory(slotId, memoryItem) {
     const memories = this.getMemories(slotId);
@@ -239,7 +385,14 @@ class MemoryEngine {
       entities: memoryItem.entities || [],
       location: memoryItem.location || '',
       status: 'ACTIVE',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      // [P1] Temporal metadata
+      game_day: memoryItem.game_day || null,
+      game_time: memoryItem.game_time || null,
+      game_location: memoryItem.game_location || '',
+      // [P1] Provenance
+      source_turn_ids: memoryItem.source_turn_ids || [],
+      created_by: memoryItem.created_by || 'ai_extractor'
     };
 
     memories.push(newMemory);
@@ -254,15 +407,68 @@ class MemoryEngine {
     const facts = this.getFacts(slotId);
     let active = facts.filter(f => f.status === 'ACTIVE');
     if (filterSubject) {
-      const cleanSub = filterSubject.toLowerCase();
+      // [P0] Resolve entity alias before filtering
+      const resolved = this.resolveEntity(slotId, filterSubject);
+      const cleanSub = resolved.toLowerCase();
       active = active.filter(f => f.subject && f.subject.toLowerCase().includes(cleanSub));
     }
     return active;
   }
 
+  // ==========================================
+  // PROGRESSIVE FACT INJECTION [P1]
+  // ==========================================
+
+  /**
+   * Get relevant facts scored by query relevance + always include high-confidence canonical facts
+   * Replaces dumping ALL active facts into prompt
+   */
+  getRelevantFacts(slotId, queryText, options = {}) {
+    const { topK = 10, alwaysIncludeHighConfidence = true, minConfidence = 0.9 } = options;
+    const allActive = this.getActiveFacts(slotId);
+
+    if (allActive.length <= topK) return allActive; // If few facts, return all
+
+    const queryTokens = this.tokenize(queryText);
+    const scored = [];
+    const highConfidence = [];
+
+    for (const fact of allActive) {
+      // Always include high-confidence canonical facts
+      if (alwaysIncludeHighConfidence && fact.confidence >= minConfidence) {
+        highConfidence.push(fact);
+        continue;
+      }
+
+      const factText = `${fact.subject} ${fact.predicate} ${fact.object}`;
+      const factTokens = this.tokenize(factText);
+      const similarity = this.computeSimilarity(queryTokens, factTokens);
+
+      scored.push({ ...fact, _relevanceScore: similarity });
+    }
+
+    // Sort by relevance
+    scored.sort((a, b) => b._relevanceScore - a._relevanceScore);
+
+    // Combine: high-confidence + top relevant (deduped)
+    const highConfIds = new Set(highConfidence.map(f => f.id));
+    const topRelevant = scored.filter(f => !highConfIds.has(f.id)).slice(0, topK - highConfidence.length);
+
+    const result = [...highConfidence, ...topRelevant];
+    // Clean internal score
+    result.forEach(f => delete f._relevanceScore);
+
+    console.log(`[MemoryEngine] Progressive facts: ${highConfidence.length} canonical + ${topRelevant.length} relevant out of ${allActive.length} total active`);
+    return result;
+  }
+
+  // ==========================================
+  // FACT RECONCILIATION [UPGRADED with Alias Resolution P0 + Provenance P1]
+  // ==========================================
+
   /**
    * Fact Triplet Engine: Add or reconcile new fact with contradiction detection
-   * Implements Section 8.2 (Memory Reconciliation & Contradiction Resolution)
+   * UPGRADED: Entity alias resolution + temporal metadata + provenance
    */
   reconcileFact(slotId, newFactData) {
     const facts = this.getFacts(slotId);
@@ -270,7 +476,10 @@ class MemoryEngine {
 
     if (!subject || !predicate || !object) return null;
 
-    const subNorm = subject.trim().toLowerCase();
+    // [P0] Resolve entity alias for subject before matching
+    const resolvedSubject = this.resolveEntity(slotId, subject);
+
+    const subNorm = resolvedSubject.trim().toLowerCase();
     const predNorm = predicate.trim().toLowerCase();
     const objNorm = object.trim().toLowerCase();
 
@@ -291,7 +500,6 @@ class MemoryEngine {
     }
 
     // Check for potential contradiction on the same (subject + predicate)
-    // E.g. Subject: "Ren", Predicate: "will_ability", Old: "Unawakened", New: "Wind Manipulation"
     const conflictingFacts = facts.filter(f =>
       f.status === 'ACTIVE' &&
       f.subject.toLowerCase() === subNorm &&
@@ -313,14 +521,21 @@ class MemoryEngine {
 
     const createdFact = {
       id: newId,
-      subject: subject.trim(),
+      subject: resolvedSubject.trim(),  // Use resolved canonical name
       predicate: predicate.trim(),
       object: object.trim(),
       confidence: confidence,
       turn_number: turn_number,
       status: 'ACTIVE',
       supersedes: supersededId,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      // [P1] Temporal metadata
+      game_day: newFactData.game_day || null,
+      game_time: newFactData.game_time || null,
+      game_location: newFactData.game_location || '',
+      // [P1] Provenance
+      source_turn_ids: newFactData.source_turn_ids || [],
+      created_by: newFactData.created_by || 'ai_extractor'
     };
 
     facts.push(createdFact);
@@ -328,25 +543,146 @@ class MemoryEngine {
     return createdFact;
   }
 
+  // ==========================================
+  // SOFT-DELETE [P1] — Archive instead of hard-delete
+  // ==========================================
+
   /**
-   * Delete or archive a memory
+   * Soft-delete a memory — sets status to DELETED instead of removing
    */
   deleteMemory(slotId, memoryId) {
     const memories = this.getMemories(slotId);
-    const updated = memories.filter(m => m.memory_id !== memoryId);
-    this.saveMemories(slotId, updated);
+    const target = memories.find(m => m.memory_id === memoryId);
+    if (target) {
+      target.status = 'DELETED';
+      target.deleted_at = new Date().toISOString();
+      this.saveMemories(slotId, memories);
+      console.log(`[MemoryEngine] Memory ${memoryId} soft-deleted`);
+    }
     return true;
   }
 
   /**
-   * Delete or archive a fact
+   * Soft-delete a fact — sets status to DELETED instead of removing
    */
   deleteFact(slotId, factId) {
     const facts = this.getFacts(slotId);
-    const updated = facts.filter(f => f.id !== factId);
-    this.saveFacts(slotId, updated);
+    const target = facts.find(f => f.id === factId);
+    if (target) {
+      target.status = 'DELETED';
+      target.deleted_at = new Date().toISOString();
+      this.saveFacts(slotId, facts);
+      console.log(`[MemoryEngine] Fact ${factId} soft-deleted`);
+    }
     return true;
   }
+
+  // ==========================================
+  // SUMMARY VERSIONING [P1]
+  // ==========================================
+
+  /**
+   * Read summary history for a slot (stored in state.json)
+   */
+  getSummaryHistory(slotId) {
+    const statePath = path.join(this.getSlotDir(slotId), 'state.json');
+    try {
+      if (fs.existsSync(statePath)) {
+        const state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+        return state.summary_history || [];
+      }
+    } catch (e) {
+      console.error(`[MemoryEngine] Failed to read summary history for ${slotId}:`, e);
+    }
+    return [];
+  }
+
+  /**
+   * Push current summary to version history before overwriting (keeps last 5)
+   */
+  pushSummaryVersion(slotId, currentSummary) {
+    if (!currentSummary) return;
+    const statePath = path.join(this.getSlotDir(slotId), 'state.json');
+    try {
+      let state = {};
+      if (fs.existsSync(statePath)) {
+        state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+      }
+      if (!state.summary_history) state.summary_history = [];
+      state.summary_history.push({
+        summary: currentSummary,
+        archived_at: new Date().toISOString()
+      });
+      // Keep only last 5 versions
+      if (state.summary_history.length > 5) {
+        state.summary_history = state.summary_history.slice(-5);
+      }
+      fs.writeFileSync(statePath, JSON.stringify(state, null, 2), 'utf8');
+      console.log(`[MemoryEngine] Summary version archived (${state.summary_history.length}/5 slots used)`);
+    } catch (e) {
+      console.error(`[MemoryEngine] Failed to push summary version:`, e);
+    }
+  }
+
+  // ==========================================
+  // MEMORY IMPORTANCE DECAY [P2]
+  // ==========================================
+
+  /**
+   * Apply gradual importance decay to old, low-importance memories
+   * - importance < 5 and age > 20 turns: reduce by 0.5 (min 1)
+   * - importance < 3 and age > 40 turns: reduce by 1.0 (min 1)
+   */
+  applyImportanceDecay(slotId, currentTurn) {
+    const memories = this.getMemories(slotId);
+    let decayCount = 0;
+
+    for (const mem of memories) {
+      if (mem.status !== 'ACTIVE') continue;
+      const age = Math.max(0, currentTurn - (mem.turn_number || 0));
+
+      if (mem.importance < 3 && age > 40) {
+        mem.importance = Math.max(1, mem.importance - 1.0);
+        decayCount++;
+      } else if (mem.importance < 5 && age > 20) {
+        mem.importance = Math.max(1, mem.importance - 0.5);
+        decayCount++;
+      }
+    }
+
+    if (decayCount > 0) {
+      this.saveMemories(slotId, memories);
+      console.log(`[MemoryEngine] Importance decay applied to ${decayCount} memories`);
+    }
+  }
+
+  // ==========================================
+  // RELATIONSHIP FACTS SYNC [P2]
+  // ==========================================
+
+  /**
+   * Sync relationship state as a fact triplet when relationship changes
+   */
+  syncRelationshipFact(slotId, npcName, relationshipStatus, relationshipValue, turnNumber, scene = {}) {
+    if (!npcName || !relationshipStatus) return;
+
+    this.reconcileFact(slotId, {
+      subject: npcName,
+      predicate: 'relationship_with_player',
+      object: `${relationshipStatus} (ค่า: ${relationshipValue})`,
+      confidence: 0.95,
+      turn_number: turnNumber,
+      game_day: scene.day || null,
+      game_time: scene.time || null,
+      game_location: scene.location || '',
+      source_turn_ids: [],
+      created_by: 'system_relationship_sync'
+    });
+  }
+
+  // ==========================================
+  // TOKEN BUDGETING & PRIORITY PYRAMID CONTEXT ASSEMBLER
+  // ==========================================
 
   /**
    * Token Budgeting & Priority Pyramid Context Assembler (Section 7.1 & 7.2)
