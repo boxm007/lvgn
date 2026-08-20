@@ -22,14 +22,30 @@ const API = {
       config.body = JSON.stringify(config.body);
     }
 
-    const res = await fetch(url, config);
-    const data = await res.json();
+    try {
+      const res = await fetch(url, config);
+      const text = await res.text();
+      let data = {};
 
-    if (!res.ok) {
-      throw new Error(data.error || `HTTP error ${res.status}`);
+      if (text && text.trim()) {
+        try {
+          data = JSON.parse(text);
+        } catch (parseErr) {
+          if (!res.ok) {
+            throw new Error(`เซิร์ฟเวอร์ตอบกลับไม่ถูกต้อง (${res.status})`);
+          }
+          throw new Error(`ข้อมูลที่ได้รับไม่ใช่ JSON: ${text.substring(0, 80)}`);
+        }
+      }
+
+      if (!res.ok) {
+        throw new Error(data.error || data.message || `HTTP error ${res.status}`);
+      }
+
+      return data;
+    } catch (fetchErr) {
+      throw fetchErr;
     }
-
-    return data;
   },
 
   // Worlds
@@ -99,20 +115,32 @@ const API = {
 
   // Memory & Facts Management
   getSlotMemories(slotId) {
+    if (!slotId || slotId === 'undefined' || slotId === 'null') {
+      return Promise.reject(new Error('กรุณาเลือก Save Slot ก่อนดูความจำ'));
+    }
     return this.request(`/api/slots/${slotId}/memories`);
   },
   deleteMemory(slotId, memId) {
+    if (!slotId || !memId) {
+      return Promise.reject(new Error('พารามิเตอร์ไม่ถูกต้อง'));
+    }
     return this.request(`/api/slots/${slotId}/memories/${memId}`, {
       method: 'DELETE'
     });
   },
   addFact(slotId, fact) {
+    if (!slotId) {
+      return Promise.reject(new Error('กรุณาเลือก Save Slot ก่อน'));
+    }
     return this.request(`/api/slots/${slotId}/facts`, {
       method: 'POST',
       body: fact
     });
   },
   deleteFact(slotId, factId) {
+    if (!slotId || !factId) {
+      return Promise.reject(new Error('พารามิเตอร์ไม่ถูกต้อง'));
+    }
     return this.request(`/api/slots/${slotId}/facts/${factId}`, {
       method: 'DELETE'
     });
@@ -120,6 +148,9 @@ const API = {
 
   // Dynamic NPC Discovery
   rememberNPC(slotId, npc) {
+    if (!slotId) {
+      return Promise.reject(new Error('กรุณาเลือก Save Slot ก่อน'));
+    }
     return this.request(`/api/slots/${slotId}/npc/remember`, {
       method: 'POST',
       body: { npc }
@@ -128,6 +159,9 @@ const API = {
 
   // Turn Pipeline
   sendTurn(slotId, playerInput, customRoll) {
+    if (!slotId) {
+      return Promise.reject(new Error('กรุณาเลือก Save Slot ก่อน'));
+    }
     return this.request(`/api/slots/${slotId}/turn`, {
       method: 'POST',
       body: { playerInput, customRoll }

@@ -1093,8 +1093,8 @@ async function handleUndo() {
 // MEMORY & FACT INSPECTOR DRAWER (9-TIER ARCHITECTURE)
 // ============================================================================
 async function openMemoryDrawer() {
-  if (!State.activeSlot) {
-    showToast('กรุณาเลือกหรือเปิด Save Slot ก่อน', 'info');
+  if (!State.activeSlot || !State.activeSlot.id || State.activeSlot.id === 'undefined') {
+    showToast('กรุณากด "เล่นต่อ" หรือ "เริ่มการเดินทางใหม่" เพื่อเปิดระบบความจำของเซฟนี้', 'info');
     return;
   }
 

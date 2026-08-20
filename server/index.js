@@ -239,11 +239,15 @@ app.post('/api/slots/:id/npc/remember', (req, res) => {
 // --- Memory & Fact Management Endpoints ---
 app.get('/api/slots/:id/memories', (req, res) => {
   try {
-    const memories = memoryEngine.getMemories(req.params.id);
-    const facts = memoryEngine.getFacts(req.params.id);
-    const slot = db.getSaveSlotById(req.params.id);
+    const slotId = req.params.id;
+    if (!slotId || slotId === 'undefined' || slotId === 'null') {
+      return res.status(400).json({ error: 'Valid slot ID is required' });
+    }
+    const memories = memoryEngine.getMemories(slotId);
+    const facts = memoryEngine.getFacts(slotId);
+    const slot = db.getSaveSlotById(slotId);
     res.json({
-      slotId: req.params.id,
+      slotId,
       memories,
       facts,
       rolling_summary: slot?.rolling_summary || ''
